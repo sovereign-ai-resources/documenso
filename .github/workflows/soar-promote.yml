@@ -25,10 +25,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: soar-promote
-  cancel-in-progress: false
-
 env:
   UPSTREAM_URL: https://github.com/documenso/documenso.git
   # Job names from soar-guardrails.yml and soar-sync-checks.yml.
@@ -53,6 +49,11 @@ jobs:
        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Job-level, so review events the if above skips never queue in the group
+    # and cannot cancel a pending promotion.
+    concurrency:
+      group: soar-promote
+      cancel-in-progress: false
     permissions:
       contents: read
       pull-requests: read
