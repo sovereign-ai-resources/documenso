@@ -14,6 +14,7 @@ import { type EnvelopeIdOptions, unsafeBuildEnvelopeIdQuery } from '../../utils/
 import { isRecipientEmailValidForSending } from '../../utils/recipients';
 import { getEmailContext } from '../email/get-email-context';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { cancelPendingInsteadOfDelete } from '../envelope/prevent-pending-delete';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type DeleteDocumentOptions = {
@@ -79,6 +80,19 @@ export const deleteDocument = async ({ id, userId, teamId, requestMetadata }: De
     throw new AppError(AppErrorCode.UNAUTHORIZED, {
       message: 'Not allowed',
     });
+  }
+
+  const cancelledEnvelope = await cancelPendingInsteadOfDelete({
+    hasDeleteAccess,
+    envelope,
+    id,
+    userId,
+    teamId,
+    requestMetadata,
+  });
+
+  if (cancelledEnvelope) {
+    return cancelledEnvelope;
   }
 
   // Handle hard or soft deleting the actual document if user has permission.

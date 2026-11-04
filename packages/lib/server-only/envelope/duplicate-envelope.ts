@@ -17,6 +17,7 @@ import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { incrementDocumentId, incrementTemplateId } from '../envelope/increment-id';
 import { assertOrganisationRatesAndLimits } from '../rate-limit/assert-organisation-rates-and-limits';
 import { resolveSignatureLevel } from '../signature-level/resolve-signature-level';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export interface DuplicateEnvelopeOptions {
@@ -104,6 +105,8 @@ export const duplicateEnvelope = async ({
       message: 'Only documents can be saved as templates',
     });
   }
+
+  await assertTeamInSingleOrganisation({ teamId });
 
   const targetType = duplicateAsTemplate ? EnvelopeType.TEMPLATE : envelope.type;
 

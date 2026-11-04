@@ -15,6 +15,7 @@ import {
 import { TelemetryClient } from '@documenso/lib/server-only/telemetry/telemetry-client';
 import { migrateDeletedAccountServiceAccount } from '@documenso/lib/server-only/user/service-accounts/deleted-account';
 import { migrateLegacyServiceAccount } from '@documenso/lib/server-only/user/service-accounts/legacy-service-account';
+import { verifySingleOrganisationOnStartup } from '@documenso/lib/server-only/user/single-organisation';
 import { env } from '@documenso/lib/utils/env';
 import { logger } from '@documenso/lib/utils/logger';
 import { openApiDocument } from '@documenso/trpc/server/open-api';
@@ -175,5 +176,6 @@ jobsClient.startCron();
 
 void migrateDeletedAccountServiceAccount();
 void migrateLegacyServiceAccount();
+void verifySingleOrganisationOnStartup();
 
 export default app;

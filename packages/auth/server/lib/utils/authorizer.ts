@@ -1,4 +1,5 @@
 import { assertUserNotDisabledById } from '@documenso/lib/server-only/user/assert-user-not-disabled';
+import { joinSingleOrganisation } from '@documenso/lib/server-only/user/single-organisation';
 import type { Context } from 'hono';
 
 import type { HonoAuthContext } from '../../types/context';
@@ -19,6 +20,8 @@ type AuthorizeUser = {
  */
 export const onAuthorize = async (user: AuthorizeUser, c: Context<HonoAuthContext>) => {
   await assertUserNotDisabledById({ userId: user.userId });
+
+  await joinSingleOrganisation({ userId: user.userId });
 
   const metadata = c.get('requestMetadata');
 

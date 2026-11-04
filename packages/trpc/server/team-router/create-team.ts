@@ -1,4 +1,5 @@
 import { createTeam } from '@documenso/lib/server-only/team/create-team';
+import { assertCanCreateOrganisationOrTeam } from '@documenso/lib/server-only/user/single-organisation';
 
 import { authenticatedProcedure } from '../trpc';
 import { ZCreateTeamRequestSchema, ZCreateTeamResponseSchema } from './create-team.types';
@@ -16,6 +17,8 @@ export const createTeamRoute = authenticatedProcedure
         organisationId,
       },
     });
+
+    await assertCanCreateOrganisationOrTeam({ userId: user.id });
 
     return await createTeam({
       userId: user.id,
