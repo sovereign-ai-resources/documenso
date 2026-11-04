@@ -82,9 +82,14 @@ export const deleteDocument = async ({ id, userId, teamId, requestMetadata }: De
     });
   }
 
-  const cancelledEnvelope = hasDeleteAccess
-    ? await cancelPendingInsteadOfDelete({ envelope, id, userId, teamId, requestMetadata })
-    : null;
+  const cancelledEnvelope = await cancelPendingInsteadOfDelete({
+    hasDeleteAccess,
+    envelope,
+    id,
+    userId,
+    teamId,
+    requestMetadata,
+  });
 
   if (cancelledEnvelope) {
     return cancelledEnvelope;

@@ -19,6 +19,7 @@ import { cancelDocument } from '../document/cancel-document';
 export const isPreventPendingDeleteEnabled = () => env('NEXT_PRIVATE_PREVENT_PENDING_DELETE') === 'true';
 
 type CancelPendingInsteadOfDeleteOptions<T extends Pick<Envelope, 'status'>> = {
+  hasDeleteAccess: boolean;
   envelope: T;
   id: EnvelopeIdOptions;
   userId: number;
@@ -28,16 +29,18 @@ type CancelPendingInsteadOfDeleteOptions<T extends Pick<Envelope, 'status'>> = {
 
 /**
  * Returns the cancelled envelope when the delete was turned into a cancel, or
- * null when the caller should delete as usual.
+ * null when the caller should delete as usual. Users without delete access
+ * (recipients hiding a document) are never routed into a cancel.
  */
 export const cancelPendingInsteadOfDelete = async <T extends Pick<Envelope, 'status'>>({
+  hasDeleteAccess,
   envelope,
   id,
   userId,
   teamId,
   requestMetadata,
 }: CancelPendingInsteadOfDeleteOptions<T>) => {
-  if (!isPreventPendingDeleteEnabled() || envelope.status !== DocumentStatus.PENDING) {
+  if (!hasDeleteAccess || !isPreventPendingDeleteEnabled() || envelope.status !== DocumentStatus.PENDING) {
     return null;
   }
 

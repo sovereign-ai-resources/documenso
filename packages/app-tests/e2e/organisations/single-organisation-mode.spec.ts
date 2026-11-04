@@ -10,7 +10,13 @@ import {
 } from '@documenso/lib/server-only/user/single-organisation';
 import { buildTeamWhereQuery } from '@documenso/lib/utils/teams';
 import { prisma } from '@documenso/prisma';
-import { EnvelopeType, FieldType, Prisma, WebhookTriggerEvents } from '@documenso/prisma/client';
+import {
+  EnvelopeType,
+  FieldType,
+  OrganisationMemberRole,
+  Prisma,
+  WebhookTriggerEvents,
+} from '@documenso/prisma/client';
 import { seedDraftDocument } from '@documenso/prisma/seed/documents';
 import { seedTestEmail, seedUser } from '@documenso/prisma/seed/users';
 import { expect, test } from '@playwright/test';
@@ -256,6 +262,31 @@ test('[SINGLE_ORGANISATION]: a configured id that does not exist fails loudly', 
 
     await expect(joinSingleOrganisation({ userId: user.id })).rejects.toThrow(/NEXT_PRIVATE_SINGLE_ORGANISATION_ID/);
   });
+});
+
+test('[SINGLE_ORGANISATION]: an organisation whose first team cannot hold joined members fails loudly', async () => {
+  const { organisation: withoutMemberTeam, team } = await seedConfiguredOrganisation();
+
+  await prisma.teamGroup.deleteMany({
+    where: { teamId: team.id, organisationGroup: { organisationRole: OrganisationMemberRole.MEMBER } },
+  });
+
+  const { organisation: withoutTeam, team: onlyTeam } = await seedConfiguredOrganisation();
+
+  await prisma.team.delete({ where: { id: onlyTeam.id } });
+
+  const user = await createBareUser();
+
+  await withFlag(withoutMemberTeam.id, async () => {
+    await expect(assertSingleOrganisationConfigured()).rejects.toThrow(/does not inherit organisation members/);
+    await expect(joinSingleOrganisation({ userId: user.id })).rejects.toThrow(/does not inherit organisation members/);
+  });
+
+  await withFlag(withoutTeam.id, async () => {
+    await expect(assertSingleOrganisationConfigured()).rejects.toThrow(/has no team/);
+  });
+
+  expect(await prisma.organisationMember.count({ where: { userId: user.id } })).toBe(0);
 });
 
 test('[SINGLE_ORGANISATION]: with the flag unset a new user gets a personal organisation as upstream', async () => {

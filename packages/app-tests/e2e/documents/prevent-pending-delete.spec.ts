@@ -5,7 +5,11 @@ import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-log
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, FieldType, SigningStatus, WebhookTriggerEvents } from '@documenso/prisma/client';
-import { seedBlankDocument, seedPendingDocumentWithFullFields } from '@documenso/prisma/seed/documents';
+import {
+  seedBlankDocument,
+  seedPendingDocument,
+  seedPendingDocumentWithFullFields,
+} from '@documenso/prisma/seed/documents';
 import { seedUser } from '@documenso/prisma/seed/users';
 import { PDF } from '@libpdf/core';
 import { expect, test } from '@playwright/test';
@@ -155,6 +159,29 @@ test('[PREVENT_PENDING_DELETE]: a draft is still deleted', async () => {
   );
 
   expect(await prisma.envelope.findUnique({ where: { id: draft.id } })).toBeNull();
+});
+
+test('[PREVENT_PENDING_DELETE]: a recipient deleting a pending document only hides it, as upstream', async () => {
+  const { user: owner, team } = await seedUser();
+  const { user: recipient, team: recipientTeam } = await seedUser();
+  const document = await seedPendingDocument(owner, team.id, [recipient]);
+
+  await withFlag('true', async () =>
+    deleteDocument({
+      id: { type: 'envelopeId', id: document.id },
+      userId: recipient.id,
+      teamId: recipientTeam.id,
+      requestMetadata,
+    }),
+  );
+
+  const envelope = await prisma.envelope.findUniqueOrThrow({ where: { id: document.id } });
+  const recipientRow = await prisma.recipient.findFirstOrThrow({
+    where: { envelopeId: document.id, email: recipient.email },
+  });
+
+  expect(envelope.status).toBe(DocumentStatus.PENDING);
+  expect(recipientRow.documentDeletedAt).not.toBeNull();
 });
 
 test('[PREVENT_PENDING_DELETE]: without the flag a pending document is hard-deleted as upstream', async () => {
