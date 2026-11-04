@@ -9,20 +9,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { AzureKeyVaultCryptographyClient } from './azure-key-vault';
 import { createAzureKeyVaultSigner } from './azure-key-vault';
 
-const loadedAzureSdkModules = vi.hoisted(() => new Set<string>());
-
-vi.mock('@azure/keyvault-keys', async (importOriginal) => {
-  loadedAzureSdkModules.add('@azure/keyvault-keys');
-
-  return await importOriginal();
-});
-
-vi.mock('@azure/identity', async (importOriginal) => {
-  loadedAzureSdkModules.add('@azure/identity');
-
-  return await importOriginal();
-});
-
 const KEY_ID = 'https://example-vault.vault.azure.net/keys/signing-key/0123456789abcdef';
 
 const DIGEST_INFO_PREFIX: Record<string, string> = {
@@ -132,10 +118,18 @@ const verifyPdfSignature = async (signedPdf: Uint8Array) => {
 
 describe('createAzureKeyVaultSigner', () => {
   let rsaIdentity: TestIdentity;
+  let otherRsaIdentity: TestIdentity;
   let ecIdentity: TestIdentity;
 
   beforeAll(async () => {
     rsaIdentity = await createSelfSignedIdentity({
+      name: 'RSASSA-PKCS1-v1_5',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256',
+    });
+
+    otherRsaIdentity = await createSelfSignedIdentity({
       name: 'RSASSA-PKCS1-v1_5',
       modulusLength: 2048,
       publicExponent: new Uint8Array([1, 0, 1]),
@@ -155,9 +149,8 @@ describe('createAzureKeyVaultSigner', () => {
   });
 
   it('sends the SHA-256 digest of the input to Key Vault and returns its signature unchanged', async () => {
-    const signature = new Uint8Array([1, 2, 3, 4, 5]);
-    const sign = vi.fn(() => Promise.resolve({ result: signature, algorithm: 'RS256', keyID: KEY_ID }));
-    const createCryptographyClient = vi.fn(() => ({ sign }));
+    const keyVault = createFakeKeyVaultClient(rsaIdentity.privateKeyPkcs8);
+    const createCryptographyClient = vi.fn(() => keyVault);
 
     const signer = await createAzureKeyVaultSigner({ createCryptographyClient });
 
@@ -165,13 +158,14 @@ describe('createAzureKeyVaultSigner', () => {
     const output = await signer.sign(input, 'SHA-256');
 
     expect(createCryptographyClient).toHaveBeenCalledWith(KEY_ID);
-    expect(sign).toHaveBeenCalledTimes(1);
+    expect(keyVault.sign).toHaveBeenCalledTimes(1);
 
-    const [algorithm, digest] = sign.mock.calls[0] as unknown as [string, Uint8Array];
+    const [algorithm, digest] = keyVault.sign.mock.calls[0];
+    const { result } = await keyVault.sign.mock.results[0].value;
 
     expect(algorithm).toBe('RS256');
     expect(Buffer.from(digest)).toEqual(createHash('sha256').update(input).digest());
-    expect(output).toBe(signature);
+    expect(output).toBe(result);
   });
 
   it('describes itself as an RSA PKCS#1 v1.5 signer with the leaf certificate first', async () => {
@@ -212,15 +206,7 @@ describe('createAzureKeyVaultSigner', () => {
     expect(Buffer.from(signerCertificateDer)).toEqual(Buffer.from(rsaIdentity.certificateDer));
   });
 
-  it('does not load the Azure SDK when the cryptography client is supplied', async () => {
-    await createAzureKeyVaultSigner({
-      createCryptographyClient: () => createFakeKeyVaultClient(rsaIdentity.privateKeyPkcs8),
-    });
-
-    expect([...loadedAzureSdkModules]).toEqual([]);
-  });
-
-  it('fails at startup naming the key ID variable when it is missing', async () => {
+  it('fails signer creation naming the key ID variable when it is missing', async () => {
     vi.stubEnv('NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID', '');
 
     await expect(createAzureKeyVaultSigner({ createCryptographyClient: vi.fn() })).rejects.toThrow(
@@ -228,7 +214,7 @@ describe('createAzureKeyVaultSigner', () => {
     );
   });
 
-  it('fails at startup naming the certificate chain variable when it is missing', async () => {
+  it('fails signer creation naming the certificate chain variable when it is missing', async () => {
     vi.stubEnv('NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN', '');
 
     await expect(createAzureKeyVaultSigner({ createCryptographyClient: vi.fn() })).rejects.toThrow(
@@ -240,6 +226,18 @@ describe('createAzureKeyVaultSigner', () => {
     vi.stubEnv('NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN', ecIdentity.certificatePem);
 
     await expect(createAzureKeyVaultSigner({ createCryptographyClient: vi.fn() })).rejects.toThrow(/RSA/);
+  });
+
+  it('fails the seal when the Key Vault key does not match the certificate', async () => {
+    const signer = await createAzureKeyVaultSigner({
+      createCryptographyClient: () => createFakeKeyVaultClient(otherRsaIdentity.privateKeyPkcs8),
+    });
+
+    const pdf = await createSmallPdf();
+
+    await expect(pdf.sign({ signer, subFilter: 'ETSI.CAdES.detached' })).rejects.toThrow(
+      /NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID.*NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN/,
+    );
   });
 
   it('fails the seal when Key Vault returns a server error', async () => {

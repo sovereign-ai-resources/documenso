@@ -1,4 +1,4 @@
-import { createHash, X509Certificate } from 'node:crypto';
+import { createHash, verify, X509Certificate } from 'node:crypto';
 
 import { env } from '@documenso/lib/utils/env';
 import type { DigestAlgorithm, Signer } from '@libpdf/core';
@@ -43,17 +43,37 @@ const loadCertificates = (): Uint8Array[] => {
   return certificates;
 };
 
-const assertRsaCertificate = (certificate: Uint8Array) => {
-  const keyType = new X509Certificate(certificate).publicKey.asymmetricKeyType;
+const getRsaPublicKey = (certificate: Uint8Array) => {
+  const { publicKey } = new X509Certificate(certificate);
 
-  if (keyType !== 'rsa') {
+  if (publicKey.asymmetricKeyType !== 'rsa') {
     throw new Error(
-      `Azure Key Vault signing supports RSA keys only, but the signing certificate in NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN has a ${keyType?.toUpperCase() ?? 'unknown'} key`,
+      `Azure Key Vault signing supports RSA keys only, but the signing certificate in NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN has a ${publicKey.asymmetricKeyType?.toUpperCase() ?? 'unknown'} key`,
     );
   }
+
+  return publicKey;
+};
+
+/**
+ * Reads and checks the azure-kv configuration without contacting Key Vault.
+ */
+export const loadAzureKeyVaultSigningConfig = () => {
+  const keyId = env('NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID');
+
+  if (!keyId) {
+    throw new Error('NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID is required for Azure Key Vault signing');
+  }
+
+  const [certificate, ...certificateChain] = loadCertificates();
+
+  const publicKey = getRsaPublicKey(certificate);
+
+  return { keyId, certificate, certificateChain, publicKey };
 };
 
 const createDefaultCryptographyClient = async (keyId: string): Promise<AzureKeyVaultCryptographyClient> => {
+  // Loaded on demand so instances using another transport never load the Azure SDK.
   const [{ CryptographyClient }, { DefaultAzureCredential }] = await Promise.all([
     import('@azure/keyvault-keys'),
     import('@azure/identity'),
@@ -69,15 +89,7 @@ const createDefaultCryptographyClient = async (keyId: string): Promise<AzureKeyV
 export const createAzureKeyVaultSigner = async ({
   createCryptographyClient = createDefaultCryptographyClient,
 }: CreateAzureKeyVaultSignerOptions = {}): Promise<Signer> => {
-  const keyId = env('NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID');
-
-  if (!keyId) {
-    throw new Error('NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID is required for Azure Key Vault signing');
-  }
-
-  const [certificate, ...certificateChain] = loadCertificates();
-
-  assertRsaCertificate(certificate);
+  const { keyId, certificate, certificateChain, publicKey } = loadAzureKeyVaultSigningConfig();
 
   const client = await createCryptographyClient(keyId);
 
@@ -92,6 +104,13 @@ export const createAzureKeyVaultSigner = async ({
       const digest = new Uint8Array(createHash(nodeHash).update(data).digest());
 
       const { result } = await client.sign(keyVault, digest);
+
+      // A key that does not match the certificate yields a signature no reader can validate.
+      if (!verify(nodeHash, data, publicKey, result)) {
+        throw new Error(
+          'The Azure Key Vault signature does not verify against the signing certificate: NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID does not name the key for the certificate in NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN',
+        );
+      }
 
       return result;
     },

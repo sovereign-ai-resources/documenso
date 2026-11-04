@@ -10,8 +10,13 @@ The `azure-kv` transport signs with a key stored in Azure Key Vault. Documenso h
 
 <Callout type="info">
   Only RSA keys are supported. Documenso signs with RSA PKCS#1 v1.5 (`RS256`, `RS384`, or `RS512`, matching the digest
-  algorithm). A certificate with an EC key is rejected at startup.
+  algorithm). A certificate with an EC key is rejected.
 </Callout>
+
+Documenso checks the configuration without contacting Key Vault: a missing key ID or certificate chain, or a certificate
+with a non-RSA or expired key, makes the `/api/health` certificate check fail. Every signature Key Vault returns is
+verified against the signing certificate before it is embedded, so a key that does not match the certificate fails
+the seal instead of producing a document whose signature cannot be validated.
 
 ## Prerequisites
 
