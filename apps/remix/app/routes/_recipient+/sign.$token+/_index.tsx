@@ -10,6 +10,7 @@ import { EnvelopeRenderProvider } from '@documenso/lib/client-only/providers/env
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { IS_INSTANCE_CSC_MODE } from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { withoutStoredAccessCode, withoutStoredAccessCodes } from '@documenso/lib/server-only/access-code/access-code';
 import { isAccessCodeSatisfied } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { loadRecipientBrandingByTeamId } from '@documenso/lib/server-only/branding/load-recipient-branding';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
@@ -170,11 +171,11 @@ const handleV1Loader = async ({ params, request }: Route.LoaderArgs) => {
 
   return {
     isDocumentAccessValid: true,
-    document,
+    document: withoutStoredAccessCodes(document),
     fields,
-    recipient,
-    recipientWithFields,
-    allRecipients,
+    recipient: withoutStoredAccessCode(recipient),
+    recipientWithFields: withoutStoredAccessCode(recipientWithFields),
+    allRecipients: allRecipients.map(withoutStoredAccessCode),
     nextRecipient,
     completedFields,
     recipientSignature,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ZRecipientAuthOptionsSchema } from '../../types/document-auth';
+import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import {
   ACCESS_CODE_COOKIE_TTL_SECONDS,
   createAccessCodeCookieValue,
@@ -15,6 +16,8 @@ import {
   serializeAccessCodeCookie,
   stripAccessCode,
   withAccessCode,
+  withoutStoredAccessCode,
+  withoutStoredAccessCodes,
 } from './access-code';
 
 const SECRET = 'test-secret-value';
@@ -120,6 +123,20 @@ describe('access code state in recipient auth options', () => {
     });
     expect(stripAccessCode(null)).toBeNull();
   });
+
+  it('strips the stored state from recipient rows and their document before they reach the browser', async () => {
+    const accessCode = await createAccessCodeState('k3x9p2', SECRET);
+    const recipient = { id: 1, token: TOKEN, authOptions: { accessAuth: ['ACCESS_CODE'], actionAuth: [], accessCode } };
+
+    expect(withoutStoredAccessCode(recipient)).toEqual({
+      id: 1,
+      token: TOKEN,
+      authOptions: { accessAuth: ['ACCESS_CODE'], actionAuth: [] },
+    });
+    expect(JSON.stringify(withoutStoredAccessCodes({ title: 'x', recipients: [recipient] }))).not.toContain(
+      accessCode.hash,
+    );
+  });
 });
 
 describe('access code verification cookie', () => {
@@ -168,5 +185,25 @@ describe('access code verification cookie', () => {
     expect(isAccessCodeVerifiedFromHeaders({ token: 'recipient-token-b', authOptions }, withCookie, SECRET)).toBe(
       false,
     );
+  });
+});
+
+describe('derived access methods with an access code', () => {
+  it('keeps the document access methods when a recipient only adds an access code', () => {
+    const { derivedRecipientAccessAuth } = extractDocumentAuthMethods({
+      documentAuth: { globalAccessAuth: ['ACCOUNT'], globalActionAuth: [] },
+      recipientAuth: { accessAuth: ['ACCESS_CODE'], actionAuth: [] },
+    });
+
+    expect(derivedRecipientAccessAuth).toEqual(['ACCOUNT', 'ACCESS_CODE']);
+  });
+
+  it('keeps the recipient access methods when the recipient sets its own', () => {
+    const { derivedRecipientAccessAuth } = extractDocumentAuthMethods({
+      documentAuth: { globalAccessAuth: ['ACCOUNT'], globalActionAuth: [] },
+      recipientAuth: { accessAuth: ['TWO_FACTOR_AUTH', 'ACCESS_CODE'], actionAuth: [] },
+    });
+
+    expect(derivedRecipientAccessAuth).toEqual(['TWO_FACTOR_AUTH', 'ACCESS_CODE']);
   });
 });

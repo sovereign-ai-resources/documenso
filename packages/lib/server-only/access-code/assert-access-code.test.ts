@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createAccessCodeState, serializeAccessCodeCookie } from './access-code';
-import { assertAccessCodesIssued, assertAccessCodeVerified, isAccessCodeSatisfied } from './assert-access-code';
+import {
+  assertAccessCodesIssued,
+  assertAccessCodeVerified,
+  assertNoAccessCodeOnDirectTemplate,
+  isAccessCodeSatisfied,
+} from './assert-access-code';
 
 const TOKEN = 'recipient-token-a';
 
@@ -56,6 +61,34 @@ describe('access code guard', () => {
       assertAccessCodesIssued([
         { email: 'a@example.com', authOptions: { accessAuth: ['ACCESS_CODE'], actionAuth: [], accessCode } },
         { email: 'b@example.com', authOptions: null },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('does not count a recipient who has already signed as missing a code', () => {
+    expect(() =>
+      assertAccessCodesIssued([
+        {
+          email: 'a@example.com',
+          signingStatus: 'SIGNED',
+          authOptions: { accessAuth: ['ACCESS_CODE'], actionAuth: [] },
+        },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('refuses a direct link template whose recipients require a code', () => {
+    expect(() =>
+      assertNoAccessCodeOnDirectTemplate([
+        { authOptions: { accessAuth: [], actionAuth: [] } },
+        { authOptions: { accessAuth: ['ACCESS_CODE'], actionAuth: [] } },
+      ]),
+    ).toThrow(/access code/);
+
+    expect(() =>
+      assertNoAccessCodeOnDirectTemplate([
+        { authOptions: { accessAuth: ['ACCOUNT'], actionAuth: [] } },
+        { authOptions: null },
       ]),
     ).not.toThrow();
   });

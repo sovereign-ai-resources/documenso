@@ -3,6 +3,7 @@ import { assertEmbedCscServiceSession } from '@documenso/ee/server-only/signing/
 import { EnvelopeRenderProvider } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { withoutStoredAccessCode, withoutStoredAccessCodes } from '@documenso/lib/server-only/access-code/access-code';
 import { isAccessCodeSatisfied } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { captureServerEvent } from '@documenso/lib/server-only/analytics/capture-server-event';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
@@ -195,9 +196,9 @@ async function handleV1Loader({ params, request }: Route.LoaderArgs) {
   return {
     token,
     user,
-    document,
-    allRecipients,
-    recipient,
+    document: withoutStoredAccessCodes(document),
+    allRecipients: allRecipients.map(withoutStoredAccessCode),
+    recipient: withoutStoredAccessCode(recipient),
     fields,
     completedFields,
     isCompleted,

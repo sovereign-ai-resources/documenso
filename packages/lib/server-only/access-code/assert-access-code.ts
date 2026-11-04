@@ -1,4 +1,5 @@
 import { prisma } from '@documenso/prisma';
+import { SigningStatus } from '@prisma/client';
 import { tryGetContext } from 'hono/context-storage';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
@@ -54,14 +55,31 @@ export const assertAccessCodeVerifiedForToken = async (token: string, headers?: 
   }
 };
 
-export const assertAccessCodesIssued = (recipients: { email: string; authOptions: unknown }[]) => {
+export const assertAccessCodesIssued = (
+  recipients: { email: string; authOptions: unknown; signingStatus?: SigningStatus }[],
+) => {
   const missing = recipients.find(
-    (recipient) => recipientRequiresAccessCode(recipient.authOptions) && !getAccessCodeState(recipient.authOptions),
+    (recipient) =>
+      (recipient.signingStatus === undefined || recipient.signingStatus === SigningStatus.NOT_SIGNED) &&
+      recipientRequiresAccessCode(recipient.authOptions) &&
+      !getAccessCodeState(recipient.authOptions),
   );
 
   if (missing) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {
       message: `Recipient ${missing.email} requires an access code, but none has been set.`,
+    });
+  }
+};
+
+/**
+ * Direct links have no step where a code can be issued or entered, so a
+ * template with a direct link cannot require one.
+ */
+export const assertNoAccessCodeOnDirectTemplate = (recipients: { authOptions: unknown }[]) => {
+  if (recipients.some((recipient) => recipientRequiresAccessCode(recipient.authOptions))) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message: 'Direct links cannot be used with recipients that require an access code.',
     });
   }
 };

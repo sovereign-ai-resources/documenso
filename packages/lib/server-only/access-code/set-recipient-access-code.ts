@@ -63,7 +63,7 @@ export const setRecipientAccessCode = async ({
 
   const envelope = await prisma.envelope.findFirst({
     where: envelopeWhereInput,
-    include: { recipients: { where: { id: recipientId } } },
+    include: { recipients: { where: { id: recipientId } }, directLink: { select: { enabled: true } } },
   });
 
   const recipient = envelope?.recipients[0];
@@ -91,6 +91,12 @@ export const setRecipientAccessCode = async ({
   if (isTemplate && code !== undefined) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {
       message: 'Templates carry the access code setting only; set the code on each document',
+    });
+  }
+
+  if (enabled && envelope.directLink?.enabled) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message: 'Direct links cannot be used with recipients that require an access code',
     });
   }
 

@@ -46,6 +46,7 @@ import {
   isRecipientBefore,
   sortRecipientsBySigningPosition,
 } from '../../utils/recipients';
+import { assertNoAccessCodeOnDirectTemplate } from '../access-code/assert-access-code';
 import { sendDocument } from '../document/send-document';
 import { validateFieldAuth } from '../document/validate-field-auth';
 import { incrementDocumentId } from '../envelope/increment-id';
@@ -195,6 +196,8 @@ export const createDocumentFromDirectTemplate = async ({
       message: 'One or more signers on this direct template are missing a signature field',
     });
   }
+
+  assertNoAccessCodeOnDirectTemplate(recipients);
 
   if (directTemplateEnvelope.updatedAt.getTime() !== templateUpdatedAt.getTime()) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, { message: 'Template no longer matches' });

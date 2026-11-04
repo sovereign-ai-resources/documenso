@@ -4,9 +4,10 @@ import { createApiToken } from '@documenso/lib/server-only/public-api/create-api
 import { updateEnvelopeRecipients } from '@documenso/lib/server-only/recipient/update-envelope-recipients';
 import { createDocumentFromTemplate } from '@documenso/lib/server-only/template/create-document-from-template';
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { createDocumentAuthOptions } from '@documenso/lib/utils/document-auth';
 import { prisma } from '@documenso/prisma';
 import { seedDraftDocument, seedPendingDocument } from '@documenso/prisma/seed/documents';
-import { seedTemplate } from '@documenso/prisma/seed/templates';
+import { seedDirectTemplate, seedTemplate } from '@documenso/prisma/seed/templates';
 import { seedUser } from '@documenso/prisma/seed/users';
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test';
 
@@ -366,6 +367,54 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
     });
 
     expect((organisation.organisationClaim.flags as { cfr21?: boolean }).cfr21 ?? false).toBe(false);
+  });
+
+  for (const internalVersion of [1, 2] as const) {
+    test(`v${internalVersion}: a document account requirement still applies once the code is entered`, async ({
+      page,
+    }) => {
+      const { user, team } = await seedUser();
+      const { user: signer } = await seedUser();
+
+      const envelope = await seedPendingDocument(user, team.id, [signer], {
+        internalVersion,
+        createDocumentOptions: {
+          authOptions: createDocumentAuthOptions({ globalAccessAuth: ['ACCOUNT'], globalActionAuth: [] }),
+        },
+      });
+      const recipient = await prisma.recipient.findFirstOrThrow({ where: { envelopeId: envelope.id } });
+
+      await setRecipientAccessCode({
+        userId: user.id,
+        teamId: team.id,
+        envelopeId: envelope.id,
+        recipientId: recipient.id,
+        enabled: true,
+        code: CODE,
+        requestMetadata: requestMetadata(user),
+      });
+
+      await page.goto(`/sign/${recipient.token}`);
+      await submitCode(page, CODE);
+      await expect(page.getByRole('heading', { name: 'Authentication required' })).toBeVisible();
+    });
+  }
+
+  test('a template with a direct link cannot require an access code', async () => {
+    const { user, team } = await seedUser();
+    const template = await seedDirectTemplate({ userId: user.id, teamId: team.id });
+    const recipient = await prisma.recipient.findFirstOrThrow({ where: { envelopeId: template.id } });
+
+    await expect(
+      setRecipientAccessCode({
+        userId: user.id,
+        teamId: team.id,
+        envelopeId: template.id,
+        recipientId: recipient.id,
+        enabled: true,
+        requestMetadata: requestMetadata(user),
+      }),
+    ).rejects.toThrow(/Direct links/);
   });
 });
 

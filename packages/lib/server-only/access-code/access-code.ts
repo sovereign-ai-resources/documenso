@@ -169,6 +169,16 @@ export const stripAccessCode = <T>(authOptions: T): T => {
   return rest as T;
 };
 
+export const withoutStoredAccessCode = <T extends { authOptions: unknown }>(recipient: T): T => ({
+  ...recipient,
+  authOptions: stripAccessCode(recipient.authOptions),
+});
+
+export const withoutStoredAccessCodes = <T extends { recipients: { authOptions: unknown }[] }>(document: T): T => ({
+  ...document,
+  recipients: document.recipients.map(withoutStoredAccessCode),
+});
+
 export const getAccessCodeCookieName = (token: string) =>
   formatHostCookieName(`access_code_${createHash('sha256').update(token).digest('hex').slice(0, 24)}`);
 

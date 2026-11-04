@@ -25,7 +25,9 @@ describe('stored access code never leaves the server', () => {
       title: 'Agreement',
       authOptions: null,
       documentMeta: null,
-      recipients: [{ id: 1, email: 'signer@example.com', name: 'Signer', token: 'tok', authOptions } as Recipient],
+      recipients: [
+        { id: 1, email: 'signer@example.com', name: 'Signer', token: 'tok', authOptions } as unknown as Recipient,
+      ],
       // biome-ignore lint/suspicious/noExplicitAny: only the fields the mapper reads matter here
     } as any);
 
