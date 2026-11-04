@@ -9,9 +9,22 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { AzureKeyVaultCryptographyClient } from './azure-key-vault';
 import { createAzureKeyVaultSigner } from './azure-key-vault';
 
+const loadedAzureSdkModules = vi.hoisted(() => new Set<string>());
+
+vi.mock('@azure/keyvault-keys', async (importOriginal) => {
+  loadedAzureSdkModules.add('@azure/keyvault-keys');
+
+  return await importOriginal();
+});
+
+vi.mock('@azure/identity', async (importOriginal) => {
+  loadedAzureSdkModules.add('@azure/identity');
+
+  return await importOriginal();
+});
+
 const KEY_ID = 'https://example-vault.vault.azure.net/keys/signing-key/0123456789abcdef';
 
-// DER prefixes of the PKCS#1 v1.5 DigestInfo structure for each hash.
 const DIGEST_INFO_PREFIX: Record<string, string> = {
   RS256: '3031300d060960864801650304020105000420',
   RS384: '3041300d060960864801650304020205000430',
@@ -49,10 +62,6 @@ const createSelfSignedIdentity = async (algorithm: RsaHashedKeyGenParams | EcKey
   };
 };
 
-/**
- * Stands in for Key Vault: signs a precomputed digest with the real private
- * key, exactly as the `RS*` algorithms do on the service.
- */
 const createFakeKeyVaultClient = (privateKeyPkcs8: Uint8Array) => {
   const privateKey = createPrivateKey({ key: Buffer.from(privateKeyPkcs8), format: 'der', type: 'pkcs8' });
 
@@ -78,10 +87,6 @@ const createSmallPdf = async () => {
 
 const latin1 = (bytes: Uint8Array) => Buffer.from(bytes).toString('latin1');
 
-/**
- * Verifies the CMS signature embedded in a signed PDF against the bytes its
- * ByteRange covers, and returns the DER of the certificate that signed it.
- */
 const verifyPdfSignature = async (signedPdf: Uint8Array) => {
   pkijs.setEngine('node-webcrypto', new pkijs.CryptoEngine({ name: 'node-webcrypto', crypto: webcrypto as Crypto }));
 
@@ -205,6 +210,14 @@ describe('createAzureKeyVaultSigner', () => {
     expect(keyVault.sign).toHaveBeenCalled();
     expect(verified).toBe(true);
     expect(Buffer.from(signerCertificateDer)).toEqual(Buffer.from(rsaIdentity.certificateDer));
+  });
+
+  it('does not load the Azure SDK when the cryptography client is supplied', async () => {
+    await createAzureKeyVaultSigner({
+      createCryptographyClient: () => createFakeKeyVaultClient(rsaIdentity.privateKeyPkcs8),
+    });
+
+    expect([...loadedAzureSdkModules]).toEqual([]);
   });
 
   it('fails at startup naming the key ID variable when it is missing', async () => {
