@@ -1,0 +1,89 @@
+name: 'SOAR fork guardrails'
+
+# Checks every change to this fork's deployable branch against the upstream
+# release it is based on (the tag soar-base). See SOAR-FORK.md.
+on:
+  pull_request:
+    branches: ['soar']
+  push:
+    branches: ['soar']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  SOAR_BASE: soar-base
+  GITLEAKS_VERSION: 8.21.1
+  GITLEAKS_SHA256: b1e20dfbd81fa5eeefc91ace3371d4db75d2250c0d426cb6acf1e51722726779
+
+jobs:
+  ee_untouched:
+    name: packages/ee untouched
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: scripts/soar/check-ee-untouched.sh
+
+  enterprise_flags:
+    name: Enterprise flags off
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: scripts/soar/check-enterprise-flags.sh
+
+  denylist:
+    name: Denylist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: scripts/soar/check-denylist.sh
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned gitleaks
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$dir/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $dir/$tarball" | sha256sum -c -
+          tar -xzf "$dir/$tarball" -C "$dir" gitleaks
+          sudo install -m 0755 "$dir/gitleaks" /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Scan the fork's commits
+        run: gitleaks git --no-banner --redact --config .gitleaks.toml --log-opts="${SOAR_BASE}..HEAD" .
+
+  divergence:
+    name: Divergence report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: scripts/soar/divergence-report.sh

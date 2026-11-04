@@ -1,0 +1,16 @@
+# Denylist for this fork: values that must never appear in the public repo.
+#
+# Each entry is the SHA-256 (hex) of one lowercase value, so this file does not
+# spell out what it guards. check-denylist.sh tokenizes added text on
+# [A-Za-z0-9._-]+, lowercases each token, and checks the token and each of its
+# dot-suffixes (a.b.c -> b.c -> c) against these hashes, so a subdomain of a
+# listed domain also matches.
+#
+# To add a value:  printf '%s' '<value in lowercase>' | sha256sum
+# Paste only the hash. Never commit the value itself, here or in a message.
+933ae339aff0c4bf54533395ef34fe2f2279ad2578f5dc31704a3b7fef074750
+9fb54e26fc0f272169496e0114cfab684a8d2de38021cbe6b4b770bae8ef327d
+78ae685639a8c3d509ba85b1567d6a1c443a31c24a2940ec96655dc8ffaed492
+cd34fe9b21c8ff9b260b373c92592ef331ae92ba45454d18f4b9754623b433e2
+ce6306473232289d7fe54409173606f9cdd63a3352d723a51445cebb45ca71ad
+40fe8a8a7adf9af057f474e834bd6aae284f67f4087e9ceb138fa040d5759be2
