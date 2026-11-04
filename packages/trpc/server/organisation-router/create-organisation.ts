@@ -4,6 +4,7 @@ import { IS_BILLING_ENABLED, NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/const
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { createOrganisation } from '@documenso/lib/server-only/organisation/create-organisation';
 import { getSubscriptionClaim } from '@documenso/lib/server-only/subscription/get-subscription-claim';
+import { assertCanCreateOrganisationOrTeam } from '@documenso/lib/server-only/user/single-organisation';
 import { INTERNAL_CLAIM_ID } from '@documenso/lib/types/subscription';
 import { prisma } from '@documenso/prisma';
 import { OrganisationType, SubscriptionStatus } from '@prisma/client';
@@ -23,6 +24,8 @@ export const createOrganisationRoute = authenticatedProcedure
         priceId,
       },
     });
+
+    await assertCanCreateOrganisationOrTeam({ userId: user.id });
 
     // Check if user can create a free organiastion.
     if (IS_BILLING_ENABLED() && !priceId) {

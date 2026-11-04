@@ -54,6 +54,7 @@ import { assignOmittedRecipientSigningOrders } from '../recipient/assign-omitted
 import { resolveSignatureLevel } from '../signature-level/resolve-signature-level';
 import { getTeamSettings } from '../team/get-team-settings';
 import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type CreateDocumentFromDirectTemplateOptions = {
@@ -166,6 +167,8 @@ export const createDocumentFromDirectTemplate = async ({
       message: 'Invalid number of envelope items',
     });
   }
+
+  await assertTeamInSingleOrganisation({ teamId: directTemplateEnvelope.teamId });
 
   const settings = await getTeamSettings({
     userId: directTemplateEnvelope.userId,

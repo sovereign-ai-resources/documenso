@@ -5,6 +5,7 @@ import type { User } from '@prisma/client';
 import { SALT_ROUNDS } from '../../constants/auth';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createPersonalOrganisation } from '../organisation/create-organisation';
+import { isSingleOrganisationMode } from './single-organisation';
 
 export interface CreateUserOptions {
   name: string;
@@ -61,7 +62,7 @@ export type OnCreateUserHookOptions = {
  * @returns User
  */
 export const onCreateUserHook = async (user: User, options: OnCreateUserHookOptions = {}) => {
-  if (!options.skipPersonalOrganisation) {
+  if (!options.skipPersonalOrganisation && !isSingleOrganisationMode()) {
     await createPersonalOrganisation({ userId: user.id });
   }
 

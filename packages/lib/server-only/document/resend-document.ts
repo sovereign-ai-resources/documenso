@@ -34,6 +34,7 @@ import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { assertOrganisationRatesAndLimits } from '../rate-limit/assert-organisation-rates-and-limits';
 import { updateRecipientNextReminder } from '../recipient/update-recipient-next-reminder';
 import { assertUserNotDisabled } from '../user/assert-user-not-disabled';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type ResendDocumentOptions = {
@@ -95,6 +96,8 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
   if (!envelope) {
     throw new Error('Document not found');
   }
+
+  await assertTeamInSingleOrganisation({ teamId: envelope.teamId });
 
   if (envelope.recipients.length === 0) {
     throw new Error('Document has no recipients');

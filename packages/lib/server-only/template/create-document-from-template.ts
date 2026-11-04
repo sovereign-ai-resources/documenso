@@ -57,6 +57,7 @@ import { assertCompatibleRecipientGrouping } from '../signature-level/assert-com
 import { assertCompatibleRecipientRole } from '../signature-level/assert-compatible-recipient-role';
 import { resolveSignatureLevel } from '../signature-level/resolve-signature-level';
 import { getTeamSettings } from '../team/get-team-settings';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 import { getOrganisationTemplateWhereInput } from './get-organisation-template-by-id';
 
@@ -332,6 +333,8 @@ export const createDocumentFromTemplate = async ({
     userId,
     teamId,
   });
+
+  await assertTeamInSingleOrganisation({ teamId });
 
   const [teamTemplate, organisationTemplate] = await Promise.all([
     prisma.envelope.findFirst({
