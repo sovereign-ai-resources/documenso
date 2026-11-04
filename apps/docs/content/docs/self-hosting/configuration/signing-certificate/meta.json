@@ -1,4 +1,12 @@
 {
   "title": "Signing Certificate",
-  "pages": ["...index", "local", "google-cloud-hsm", "csc-qes", "timestamp-server", "troubleshooting"]
+  "pages": [
+    "...index",
+    "local",
+    "google-cloud-hsm",
+    "azure-key-vault",
+    "csc-qes",
+    "timestamp-server",
+    "troubleshooting"
+  ]
 }

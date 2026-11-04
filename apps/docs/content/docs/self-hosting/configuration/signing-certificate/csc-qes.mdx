@@ -129,7 +129,7 @@ The instance refuses to start in CSC mode unless `NEXT_PRIVATE_SIGNING_TIMESTAMP
 
 `NEXT_PRIVATE_SIGNING_TRANSPORT` is a one-way operational migration. Existing envelopes route per the `signatureLevel` column they were created with — the runtime branching looks at the envelope, not the env var. After a switch:
 
-- Envelopes already at `SES` continue to use the new transport for sealing, but the new transport's signer must produce SES-compatible signatures (only `local` and `gcloud-hsm` qualify).
+- Envelopes already at `SES` continue to use the new transport for sealing, but the new transport's signer must produce SES-compatible signatures (only `local`, `gcloud-hsm`, and `azure-kv` qualify).
 - Envelopes already at `AES` / `QES` will fail at sign or seal time if the new transport is not `csc`.
 
 Plan migrations during a quiet window with no in-flight envelopes.
