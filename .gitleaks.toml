@@ -1,0 +1,7 @@
+# gitleaks configuration for this fork. Used by the soar-guardrails workflow
+# and the pre-push hook (scripts/soar/install-hooks.sh). Both scan only the
+# commits this fork adds on top of the upstream release, not upstream history.
+title = "fork guardrails"
+
+[extend]
+useDefault = true
