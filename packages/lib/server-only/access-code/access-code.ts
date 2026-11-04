@@ -69,9 +69,6 @@ const isSequential = (code: string) => {
   return isRun(1) || isRun(-1);
 };
 
-/**
- * Returns why a code is too weak to use, or null when it is acceptable.
- */
 export const getAccessCodeWeakness = (rawCode: string): TAccessCodeWeakness | null => {
   const code = normalizeAccessCode(rawCode);
 
@@ -146,16 +143,9 @@ export const getAccessCodeState = (authOptions: unknown): TRecipientAccessCode |
 export const recipientRequiresAccessCode = (authOptions: unknown) =>
   ZRecipientAuthOptionsSchema.parse(authOptions).accessAuth.includes(DocumentAuth.ACCESS_CODE);
 
-/**
- * The access methods left to check once the access code itself is satisfied.
- */
 export const withoutAccessCodeMethod = <T extends string>(methods: T[]): T[] =>
   methods.filter((method) => method !== DocumentAuth.ACCESS_CODE);
 
-/**
- * Carries the stored code from the previous auth options into the new ones,
- * as long as the recipient still requires an access code.
- */
 export const withAccessCode = (
   next: TRecipientAuthOptions,
   previous: unknown,
@@ -169,9 +159,6 @@ export const withAccessCode = (
   return { ...next, accessCode };
 };
 
-/**
- * Removes the stored code from auth options before they leave the server.
- */
 export const stripAccessCode = <T>(authOptions: T): T => {
   if (!authOptions || typeof authOptions !== 'object' || Array.isArray(authOptions) || !('accessCode' in authOptions)) {
     return authOptions;
@@ -261,10 +248,6 @@ export type AccessCodeRecipient = {
   authOptions: unknown;
 };
 
-/**
- * Whether the browser that sent these headers has verified this recipient's
- * current access code.
- */
 export const isAccessCodeVerifiedFromHeaders = (
   recipient: AccessCodeRecipient,
   headers: Headers | undefined,

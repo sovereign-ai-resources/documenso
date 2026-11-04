@@ -83,7 +83,6 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
         await expect(page.getByRole('button', { name: 'Complete' })).toBeVisible();
       }
 
-      // A recipient without the option is unaffected.
       await page.goto(`/sign/${plainRecipient.token}`);
       await expect(page.getByRole('heading', { name: 'Access code required' })).not.toBeVisible();
     });
@@ -100,29 +99,24 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
 
     const pdfByTokenPath = `/api/files/token/${protectedRecipient.token}/envelope/${envelope.id}/envelopeItem/${envelopeItem.id}/dataId/${envelopeItem.documentDataId}/current/item.pdf`;
 
-    // No cookie: refused on both token PDF routes.
     expect((await fetchPdf(request, protectedRecipient.token, envelopeItem.id)).status()).toBe(401);
     expect((await request.get(pdfByTokenPath)).status()).toBe(401);
 
-    // A recipient without the option still gets the PDF.
     expect((await fetchPdf(request, plainRecipient.token, envelopeItem.id)).status()).toBe(200);
 
     await page.goto(`/sign/${protectedRecipient.token}`);
     await submitCode(page, CODE);
     await expect(page.getByRole('heading', { name: 'Sign Document' })).toBeVisible();
 
-    // Same browser, now verified.
     expect((await fetchPdf(page.request, protectedRecipient.token, envelopeItem.id)).status()).toBe(200);
     expect((await page.request.get(pdfByTokenPath)).status()).toBe(200);
 
-    // The cookie is HttpOnly and is not exposed to page scripts.
     const cookies = await page.context().cookies();
     const accessCodeCookie = cookies.find((cookie) => cookie.name.includes('access_code_'));
 
     expect(accessCodeCookie?.httpOnly).toBe(true);
     expect(await page.evaluate(() => document.cookie)).not.toContain('access_code_');
 
-    // A second browser with the same link is prompted again.
     const otherContext = await browser.newContext();
     const otherPage = await otherContext.newPage();
 
@@ -146,8 +140,6 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
     await submitCode(page, 'wrong-code-5');
     await expect(page.getByTestId('access-code-locked')).toBeVisible();
 
-    // The lock is stored on the recipient and has no expiry: a later visit, even
-    // with the right code, stays locked until the sender acts.
     await page.goto(`/sign/${protectedRecipient.token}`);
     await expect(page.getByTestId('access-code-locked')).toBeVisible();
 
@@ -170,7 +162,6 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
     expect(outcomes.filter((outcome) => outcome === 'FAILED')).toHaveLength(5);
     expect(outcomes.filter((outcome) => outcome === 'LOCKED')).toHaveLength(1);
 
-    // The sender is emailed when the recipient locks.
     const inbucketUrl = process.env.E2E_INBUCKET_URL;
 
     if (inbucketUrl) {
@@ -184,7 +175,6 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
         .toBe(true);
     }
 
-    // The sender issues a new code, which unlocks the recipient.
     await setRecipientAccessCode({
       userId: user.id,
       teamId: team.id,
@@ -325,7 +315,6 @@ test.describe('[DOCUMENT_AUTH]: access code', () => {
     expect(documentRecipient.authOptions).toMatchObject({ accessAuth: ['ACCESS_CODE'] });
     expect(documentRecipient.authOptions).not.toHaveProperty('accessCode');
 
-    // Sending is refused until the sender sets the code on the document.
     await expect(
       sendDocument({
         id: { type: 'envelopeId', id: document.id },

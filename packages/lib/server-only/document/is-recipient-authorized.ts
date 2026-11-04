@@ -64,7 +64,6 @@ export const isRecipientAuthorized = async ({
     recipientAuth: recipient.authOptions,
   });
 
-  // An access code needs this browser's verification cookie, in addition to any other access method.
   if (
     type !== 'ACTION' &&
     !isAccessCodeSatisfied({ token: recipient.token ?? '', authOptions: recipient.authOptions })

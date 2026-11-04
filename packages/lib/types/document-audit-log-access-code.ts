@@ -51,10 +51,10 @@ export const formatAccessCodeAuditLog = (
       you: msg`You entered an incorrect access code`,
       user: msg`${user} entered an incorrect access code`,
     }))
-    .with('LOCKED', () => ({
-      anonymous: msg`Access code locked for ${recipient} after too many incorrect attempts`,
-      you: msg`Access code locked for ${recipient} after too many incorrect attempts`,
-      user: msg`Access code locked for ${recipient} after too many incorrect attempts`,
-    }))
+    .with('LOCKED', () => {
+      const locked = msg`Access code locked for ${recipient} after too many incorrect attempts`;
+
+      return { anonymous: locked, you: locked, user: locked };
+    })
     .exhaustive();
 };

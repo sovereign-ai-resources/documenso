@@ -23,15 +23,15 @@ const getCurrentRequestHeaders = () => tryGetContext()?.req.raw.headers;
 export const isAccessCodeSatisfied = (recipient: AccessCodeRecipient, headers = getCurrentRequestHeaders()) =>
   !recipientRequiresAccessCode(recipient.authOptions) || isAccessCodeVerifiedFromHeaders(recipient, headers);
 
-/**
- * Throws UNAUTHORIZED unless the access code is satisfied for this recipient.
- */
+const accessCodeRequiredError = () =>
+  new AppError(AppErrorCode.UNAUTHORIZED, {
+    message: 'Access code required',
+    statusCode: 401,
+  });
+
 export const assertAccessCodeVerified = (recipient: AccessCodeRecipient, headers?: Headers) => {
-  if (!isAccessCodeSatisfied(recipient, headers ?? getCurrentRequestHeaders())) {
-    throw new AppError(AppErrorCode.UNAUTHORIZED, {
-      message: 'Access code required',
-      statusCode: 401,
-    });
+  if (!isAccessCodeSatisfied(recipient, headers)) {
+    throw accessCodeRequiredError();
   }
 };
 
@@ -45,26 +45,15 @@ export const isAccessCodeSatisfiedForToken = async (token: string, headers?: Hea
     select: { token: true, authOptions: true },
   });
 
-  return !recipient || isAccessCodeSatisfied(recipient, headers ?? getCurrentRequestHeaders());
+  return !recipient || isAccessCodeSatisfied(recipient, headers);
 };
 
-/**
- * Throws UNAUTHORIZED unless the access code is satisfied for the recipient
- * with this token.
- */
 export const assertAccessCodeVerifiedForToken = async (token: string, headers?: Headers) => {
   if (!(await isAccessCodeSatisfiedForToken(token, headers))) {
-    throw new AppError(AppErrorCode.UNAUTHORIZED, {
-      message: 'Access code required',
-      statusCode: 401,
-    });
+    throw accessCodeRequiredError();
   }
 };
 
-/**
- * Refuses to send when a recipient requires an access code but none has been
- * set, for example on a document created from a template.
- */
 export const assertAccessCodesIssued = (recipients: { email: string; authOptions: unknown }[]) => {
   const missing = recipients.find(
     (recipient) => recipientRequiresAccessCode(recipient.authOptions) && !getAccessCodeState(recipient.authOptions),

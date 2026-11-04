@@ -14,10 +14,6 @@ export type AccessCodeGateProps = {
   children: ReactNode;
 };
 
-/**
- * Shows the access code prompt in place of the children while the recipient
- * in the URL requires an access code this browser has not verified yet.
- */
 export const AccessCodeGate = ({ children }: AccessCodeGateProps) => {
   const { token } = useParams();
 

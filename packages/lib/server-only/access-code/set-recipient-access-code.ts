@@ -1,7 +1,7 @@
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, EnvelopeType, RecipientRole, SigningStatus } from '@prisma/client';
 
-import { IS_ACCESS_CODE_ENABLED } from '../../constants/access-code';
+import { ACCESS_CODE_MIN_LENGTH, IS_ACCESS_CODE_ENABLED } from '../../constants/access-code';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../types/document-audit-logs';
 import { DocumentAuth, ZRecipientAuthOptionsSchema } from '../../types/document-auth';
@@ -16,7 +16,7 @@ import {
 } from './access-code';
 
 const WEAKNESS_MESSAGES: Record<TAccessCodeWeakness, string> = {
-  TOO_SHORT: 'The access code must be at least 6 characters.',
+  TOO_SHORT: `The access code must be at least ${ACCESS_CODE_MIN_LENGTH} characters.`,
   TOO_LONG: 'The access code is too long.',
   REPEATED: 'The access code cannot be a single repeated character.',
   SEQUENTIAL: 'The access code cannot be a simple sequence.',
@@ -27,9 +27,6 @@ export type SetRecipientAccessCodeOptions = {
   teamId: number;
   envelopeId: string;
   recipientId: number;
-  /**
-   * Whether the recipient must enter an access code.
-   */
   enabled: boolean;
   /**
    * The code to issue. Required to enable it on a document; never accepted on

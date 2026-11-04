@@ -91,7 +91,7 @@ export const verifyAccessCode = async ({
     }
 
     if (state.locked) {
-      return { status: 'LOCKED' } as const;
+      return { status: 'LOCKED', justLocked: null } as const;
     }
 
     const saveState = async (accessCode: TRecipientAccessCode) => {
@@ -133,7 +133,7 @@ export const verifyAccessCode = async ({
   }
 
   if (result.status === 'LOCKED') {
-    if ('justLocked' in result && result.justLocked) {
+    if (result.justLocked) {
       await sendAccessCodeLockedEmail(result.justLocked).catch((error) => {
         logger.error({ msg: 'Failed to send access code locked email', error });
       });

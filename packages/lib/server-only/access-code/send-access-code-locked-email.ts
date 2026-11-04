@@ -9,10 +9,6 @@ import { renderEmailWithI18N } from '../../utils/render-email-with-i18n';
 import { formatDocumentsPath } from '../../utils/teams';
 import { getEmailContext } from '../email/get-email-context';
 
-/**
- * Tells the document owner that a recipient's access code is locked, so they
- * can set a new one.
- */
 export const sendAccessCodeLockedEmail = async ({
   envelopeId,
   recipientId,
