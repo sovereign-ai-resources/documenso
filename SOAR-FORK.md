@@ -76,20 +76,75 @@ commit that deletes it is not enough: the history is public.
 ### Taking a new upstream release
 
 The stack is replayed, never merged, so each fork change stays one visible
-commit and upstream conflicts show up file by file:
+commit and upstream conflicts show up file by file. Three workflows do it:
+
+1. **`soar-upstream-sync.yml`** runs daily (and by hand). It compares upstream's
+   newest release tag (`vX.Y.Z`; prereleases are ignored) with the release
+   `soar-base` names, using `scripts/soar/upstream-release.sh`. For a newer
+   release it runs `scripts/soar/replay.sh`, which does
+   `git rebase --onto <new tag> soar-base soar` on a fresh `sync/<new tag>`
+   branch, then runs the ee, Enterprise-flag, denylist and gitleaks checks on
+   the result before pushing anything. It pushes `sync/vX.Y.Z` and opens a PR
+   into `soar` with the release notes link, the divergence report, and a
+   `security` label when the release notes mention security.
+   - A `package-lock.json` conflict is not a conflict: the replay keeps
+     upstream's lockfile and regenerates it with
+     `npm install --package-lock-only --ignore-scripts`.
+   - Any other conflict, or any failure before the PR opens, opens an issue
+     titled `Upstream sync vX.Y.Z: ...` that names the fork commit and the
+     conflicting files. The daily run skips a release while that issue is
+     open or its `sync/` branch exists.
+   - Run by hand with the release `soar-base` already names, it is a dry run:
+     it checks that the replay reproduces `soar` exactly and pushes nothing.
+2. **On the pushed sync branch**, `soar-guardrails.yml` (against the new
+   release, via `scripts/soar/sync-base.sh`) and `soar-sync-checks.yml` (lint,
+   build, Docker image, Playwright) run. They run on push, not on the PR,
+   because GitHub runs no pull_request workflows for a PR it cannot merge, and
+   a sync PR into `soar` often cannot be merged. Their results show on the PR.
+3. **`soar-promote.yml`** runs when the sync PR is approved. It checks that a
+   repository admin (or a whole-repo owner in CODEOWNERS) approved the PR's
+   current head, and that every check on that head passed. Then
+   `scripts/soar/promote.sh`, in one atomic push, tags the old `soar` tip as
+   `soar-archive/<old tag>`, force-moves `soar` to the sync branch (leased on
+   the tip it read), and moves `soar-base` to the new tag. It closes the PR
+   with a comment and deletes the branch. If approving does not start it (the
+   same unmergeable-PR rule), run it by hand with the PR number.
+
+The sync PR is reviewed but **never merged**: a GitHub merge would duplicate
+the stack. Security releases should reach production within a week of
+publication.
+
+To resolve a conflict, replay locally, fix the named fork commit so it applies
+to the new release, land that fix as a PR into `soar`, close the issue, and let
+the next run retry:
 
 ```sh
-git rebase --onto <new upstream tag> soar-base soar   # onto a sync/vX.Y.Z branch
+git fetch upstream tag vX.Y.Z --no-tags
+scripts/soar/replay.sh vX.Y.Z      # exit 2 names the commit and files
 ```
 
-- If `package-lock.json` conflicts, take upstream's lockfile and regenerate it
-  with `npm install --package-lock-only`; that is not a real conflict.
-- The full test suite and the guardrails run on the sync PR. The PR is reviewed
-  but **never merged**: a GitHub merge would duplicate the stack.
-- Once approved, the promote step tags the old `soar` tip as
-  `soar-archive/<old tag>`, moves `soar` to the sync branch, and moves
-  `soar-base` to the new tag. Only that promote step may force-push `soar`.
-- Security releases should reach production within a week of publication.
+`scripts/soar/test-sync.sh` exercises the replay, promote and release-detection
+scripts against throwaway repositories (it stubs `npm`).
+
+### Repository settings the sync needs
+
+These are set by a repository admin; nothing in this repo can set them.
+
+- **A GitHub App**, installed on this repository only, with repository
+  permissions Contents, Pull requests, Workflows and Issues set to read and
+  write (Metadata read is implied). Store its App ID as the Actions secret
+  `SOAR_SYNC_APP_ID` and a private key as `SOAR_SYNC_APP_PRIVATE_KEY`. The
+  workflows push with its token, not `GITHUB_TOKEN`, because `GITHUB_TOKEN`
+  cannot push workflow files and its pushes and PRs start no workflows.
+- **Actions enabled** on this fork, including scheduled workflows.
+- **Protect `soar`** (ruleset or branch protection): require a PR, block force
+  pushes and deletion, and allow only the sync App to bypass. Then only the
+  promote workflow can force-move `soar`. Allow only squash merges for PRs
+  into `soar`, so each fork change stays one commit.
+- **Protect `sync/v*`**: only the sync App may create or update these
+  branches, so the head a reviewer approves is what the automation built.
+- **Protect the tags `soar-base` and `soar-archive/*`**: only the sync App may
+  create, move or delete them.
 
 ## Rules that keep the replay cheap
 
@@ -108,7 +163,8 @@ git rebase --onto <new upstream tag> soar-base soar   # onto a sync/vX.Y.Z branc
 ## What CI checks
 
 `.github/workflows/soar-guardrails.yml` runs on every PR into `soar` and every
-push to `soar`, comparing against `soar-base`:
+push to `soar`, comparing against `soar-base`, and on every push to a sync
+branch, comparing against the upstream release that branch was replayed onto:
 
 | Job | Script | Fails when |
 |---|---|---|

@@ -1,0 +1,309 @@
+name: 'SOAR upstream sync'
+
+# Brings each new upstream Documenso release into this fork as a review-only
+# sync PR, or reports exactly where the fork's stack conflicts with it.
+# See SOAR-FORK.md, "Taking a new upstream release".
+#
+# 1. detect: compare upstream's newest release tag (vX.Y.Z, no prereleases)
+#    with the release soar-base names. Skip it when its sync branch already
+#    exists or an open issue already reports it.
+# 2. replay: scripts/soar/replay.sh replays the stack onto the release, then
+#    the leak and license guardrails run on the result before anything is
+#    pushed. The branch sync/vX.Y.Z is pushed and a PR into soar is opened.
+#    Pushing the branch starts soar-guardrails.yml and soar-sync-checks.yml
+#    (lint, build, Docker image, Playwright), whose results show on the PR.
+# 3. report: a conflict, or any other failure, opens an issue.
+#
+# Run it by hand with a tag to replay onto that release. Given the release
+# soar-base already names, it is a dry run: it checks that the replay
+# reproduces soar exactly and pushes nothing.
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream release tag to replay onto (vX.Y.Z). Empty: the newest release.'
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: soar-upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: documenso/documenso
+  UPSTREAM_URL: https://github.com/documenso/documenso.git
+  GITLEAKS_VERSION: 8.21.1
+  GITLEAKS_SHA256: b1e20dfbd81fa5eeefc91ace3371d4db75d2250c0d426cb6acf1e51722726779
+
+jobs:
+  detect:
+    name: Find a new upstream release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      current: ${{ steps.release.outputs.current }}
+      target: ${{ steps.release.outputs.target }}
+      mode: ${{ steps.pending.outputs.mode }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: soar
+          persist-credentials: false
+      - name: Fetch soar-base
+        run: git fetch -q --no-tags --depth=1 origin '+refs/tags/soar-base:refs/tags/soar-base'
+      - id: release
+        name: Compare upstream releases with soar-base
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          scripts/soar/upstream-release.sh "$UPSTREAM_URL" "$INPUT_TAG" | tee -a "$GITHUB_OUTPUT"
+      - id: pending
+        name: Skip a release that is already in progress
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.release.outputs.mode }}
+          TARGET: ${{ steps.release.outputs.target }}
+          CURRENT: ${{ steps.release.outputs.current }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = sync ]; then
+            if git ls-remote --exit-code --heads origin "refs/heads/sync/$TARGET" >/dev/null; then
+              echo "::notice::sync/$TARGET already exists; its PR is the place to continue. Delete the branch to replay again."
+              MODE=none
+            elif [ "$GITHUB_EVENT_NAME" = schedule ] &&
+              gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"Upstream sync $TARGET\" in:title" \
+                --json title --jq '.[].title' | grep -qF "Upstream sync $TARGET:"; then
+              echo "::notice::An open issue already reports the sync to $TARGET. Close it, or run this workflow by hand, to try again."
+              MODE=none
+            fi
+          fi
+          echo "mode=$MODE" >>"$GITHUB_OUTPUT"
+          echo "Release in soar-base: $CURRENT; target: $TARGET; mode: $MODE" >>"$GITHUB_STEP_SUMMARY"
+
+  replay:
+    name: Replay the fork onto the release
+    needs: detect
+    if: needs.detect.outputs.mode == 'sync' || needs.detect.outputs.mode == 'dry-run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      MODE: ${{ needs.detect.outputs.mode }}
+      TARGET: ${{ needs.detect.outputs.target }}
+      CURRENT: ${{ needs.detect.outputs.current }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: soar
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: v24.x
+      - name: Use the npm version the repo pins
+        run: corepack enable npm
+
+      - name: Fetch the release
+        run: |
+          set -euo pipefail
+          git fetch -q --no-tags origin '+refs/tags/soar-base:refs/tags/soar-base'
+          git fetch -q --no-tags "$UPSTREAM_URL" "+refs/tags/$TARGET:refs/tags/$TARGET"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Replay the stack
+        run: |
+          set -uo pipefail
+          scripts/soar/replay.sh "$TARGET" soar 2>&1 | tee replay.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Keep the replay log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: replay-log
+          path: replay.log
+          if-no-files-found: ignore
+
+      - name: Dry run reproduces soar
+        if: env.MODE == 'dry-run'
+        run: |
+          set -euo pipefail
+          got="$(git rev-parse "sync/$TARGET^{tree}")"
+          want="$(git rev-parse "soar^{tree}")"
+          echo "Dry run onto $TARGET: replayed tree $got, soar tree $want" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$got" = "$want" ] || { echo "::error::The replay does not reproduce soar"; exit 1; }
+
+      # The leak and license guardrails run before anything is pushed: once
+      # the branch is pushed it is public.
+      - name: packages/ee untouched
+        env:
+          SOAR_BASE: ${{ needs.detect.outputs.target }}
+        run: scripts/soar/check-ee-untouched.sh
+      - name: Enterprise flags off
+        env:
+          SOAR_BASE: ${{ needs.detect.outputs.target }}
+        run: scripts/soar/check-enterprise-flags.sh
+      - name: Denylist
+        env:
+          SOAR_BASE: ${{ needs.detect.outputs.target }}
+        run: scripts/soar/check-denylist.sh
+      - name: Install pinned gitleaks
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$dir/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $dir/$tarball" | sha256sum -c -
+          tar -xzf "$dir/$tarball" -C "$dir" gitleaks
+          sudo install -m 0755 "$dir/gitleaks" /usr/local/bin/gitleaks
+      - name: gitleaks
+        run: gitleaks git --no-banner --redact --config .gitleaks.toml --log-opts="${TARGET}..HEAD" .
+      - name: Divergence report
+        env:
+          SOAR_BASE: ${{ needs.detect.outputs.target }}
+        run: scripts/soar/divergence-report.sh >divergence.md
+
+      - name: Read the upstream release notes
+        if: env.MODE == 'sync'
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Every release after the current one up to the target, so a security
+          # fix in a release that was skipped over is not missed.
+          newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]; }
+          : >notes.md
+          for t in $(gh release list --repo "$UPSTREAM_REPO" --limit 100 --exclude-drafts --exclude-pre-releases \
+                       --json tagName --jq '.[].tagName'); do
+            [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            if newer "$t" "$CURRENT" && ! newer "$t" "$TARGET"; then
+              gh release view "$t" --repo "$UPSTREAM_REPO" --json body --jq .body >>notes.md
+            fi
+          done
+          if grep -qiE 'security|vulnerab|CVE-[0-9]|GHSA-' notes.md; then
+            echo "security=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "security=false" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Get an app token
+        if: env.MODE == 'sync'
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SOAR_SYNC_APP_ID }}
+          private-key: ${{ secrets.SOAR_SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+          permission-issues: write
+
+      # Pushed with the app's token, not GITHUB_TOKEN: GITHUB_TOKEN cannot push
+      # workflow files, and its pushes and PRs start no workflows.
+      - name: Push the sync branch
+        if: env.MODE == 'sync'
+        env:
+          TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "refs/heads/sync/$TARGET:refs/heads/sync/$TARGET"
+
+      - name: Open the sync PR
+        if: env.MODE == 'sync'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SECURITY: ${{ steps.notes.outputs.security }}
+        run: |
+          set -euo pipefail
+          notes_url="https://github.com/${UPSTREAM_REPO}/releases/tag/${TARGET}"
+
+          head="$(git rev-parse HEAD)"
+          {
+            echo "Replays this fork's stack onto upstream [$TARGET]($notes_url) (from $CURRENT)."
+            echo
+            echo "> [!IMPORTANT]"
+            echo "> **Review only. Do not merge.** A merge would duplicate the fork's stack."
+            echo "> Approve this PR to promote it: the soar-promote workflow then moves \`soar\` to this branch."
+            echo "> If approving does not start it, run soar-promote by hand with this PR's number."
+            echo
+            if [ "$SECURITY" = true ]; then
+              echo "> [!WARNING]"
+              echo "> The upstream release notes mention security. Target: in production within a week of the release."
+              echo
+            fi
+            echo "Head: \`$head\` on $TARGET. Upstream release notes: $notes_url"
+            echo
+            echo "Checks on this PR: guardrails (soar-guardrails) and the upstream suite (soar-sync-checks: lint, build, Docker image, Playwright)."
+            echo
+            if grep -q 'package-lock.json conflict' replay.log; then
+              echo "### Lockfile conflicts resolved during the replay"
+              echo
+              echo '```'
+              grep 'package-lock.json conflict' replay.log
+              echo '```'
+              echo
+            fi
+            cat divergence.md
+          } >pr-body.md
+
+          labels=()
+          if [ "$SECURITY" = true ]; then
+            gh label create security --repo "$GITHUB_REPOSITORY" --color B60205 \
+              --description 'Upstream release with security fixes' 2>/dev/null || true
+            labels=(--label security)
+          fi
+          gh pr create --repo "$GITHUB_REPOSITORY" --base soar --head "sync/$TARGET" \
+            --title "chore: sync upstream $TARGET" --body-file pr-body.md "${labels[@]}"
+
+  report:
+    name: Report a failed sync
+    needs: [detect, replay]
+    if: failure() && needs.detect.outputs.mode == 'sync'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    env:
+      TARGET: ${{ needs.detect.outputs.target }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: replay-log
+        continue-on-error: true
+      - name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -f replay.log ] && grep -q '^replay: conflict' replay.log; then
+            title="Upstream sync $TARGET: conflict"
+            {
+              echo "Replaying this fork's stack onto upstream $TARGET stopped on a conflict that is not just package-lock.json."
+              echo
+              echo '```'
+              sed -n '/^replay: conflict/,$p' replay.log
+              echo '```'
+              echo
+              echo "To resolve: run \`scripts/soar/replay.sh $TARGET\` locally (see SOAR-FORK.md), fix the fork commit named above so it applies to $TARGET, and land that as a PR into soar. Then close this issue; the next daily run retries."
+            } >issue.md
+          else
+            title="Upstream sync $TARGET: failed"
+            echo "The sync to upstream $TARGET failed before its PR was opened. See $RUN_URL. Close this issue once fixed; the next daily run retries." >issue.md
+          fi
+          echo "Run: $RUN_URL" >>issue.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file issue.md
