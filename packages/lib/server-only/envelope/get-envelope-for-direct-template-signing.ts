@@ -120,6 +120,7 @@ export const getEnvelopeForDirectTemplateSigning = async ({
     match(auth)
       .with(DocumentAccessAuth.ACCOUNT, () => Boolean(userId))
       .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => true)
+      .with('ACCESS_CODE', () => false)
       .exhaustive(),
   );
 

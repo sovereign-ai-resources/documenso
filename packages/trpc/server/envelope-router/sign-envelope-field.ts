@@ -1,5 +1,6 @@
 import { isBase64Image } from '@documenso/lib/constants/signatures';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerified } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { validateFieldAuth } from '@documenso/lib/server-only/document/validate-field-auth';
 import { assertSenderNotDisabled } from '@documenso/lib/server-only/user/assert-user-not-disabled';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -37,6 +38,8 @@ export const signEnvelopeFieldRoute = procedure
     if (!recipient) {
       throw new AppError(AppErrorCode.NOT_FOUND);
     }
+
+    assertAccessCodeVerified(recipient);
 
     const field = await prisma.field.findFirst({
       where: {

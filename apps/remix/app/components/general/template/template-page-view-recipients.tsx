@@ -8,6 +8,7 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { PenIcon, PlusIcon } from 'lucide-react';
 import { Link } from 'react-router';
+import { RecipientAccessCodeControl } from '../document/recipient-access-code-control';
 
 export type TemplatePageViewRecipientsProps = {
   recipients: TRecipientLite[];
@@ -70,6 +71,10 @@ export const TemplatePageViewRecipients = ({
                 </p>
               }
             />
+
+            {!readOnly && (
+              <RecipientAccessCodeControl envelopeId={envelopeId} envelopeType="TEMPLATE" recipient={recipient} />
+            )}
           </li>
         ))}
       </ul>

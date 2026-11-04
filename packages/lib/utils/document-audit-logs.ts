@@ -5,6 +5,7 @@ import { RecipientRole } from '@prisma/client';
 import { isDeepEqual } from 'remeda';
 import { match } from 'ts-pattern';
 
+import { formatAccessCodeAuditLog } from '../types/document-audit-log-access-code';
 import type {
   TDocumentAuditLog,
   TDocumentAuditLogDocumentMetaDiffSchema,
@@ -557,6 +558,9 @@ export const formatDocumentAuditLogAction = (i18n: I18n, auditLog: TDocumentAudi
       you: msg`You failed to validate a 2FA token for the document`,
       user: msg`${user} failed to validate a 2FA token for the document`,
     }))
+    .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_ACCESS_AUTH_ACCESS_CODE }, ({ data }) =>
+      formatAccessCodeAuditLog(data, user),
+    )
     .with({ type: DOCUMENT_AUDIT_LOG_TYPE.EMAIL_SENT }, ({ data }) => {
       if (data.isResending) {
         return {

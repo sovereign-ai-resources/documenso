@@ -210,6 +210,7 @@ export const createDocumentFromDirectTemplate = async ({
   const isAccessAuthValid = match(derivedRecipientAccessAuth.at(0))
     .with(DocumentAccessAuth.ACCOUNT, () => user && user?.email === directRecipientEmail)
     .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => false) // Not supported for direct templates
+    .with('ACCESS_CODE', () => false)
     .with(undefined, () => true)
     .exhaustive();
 

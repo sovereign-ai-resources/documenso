@@ -3,6 +3,7 @@ import { assertEmbedCscServiceSession } from '@documenso/ee/server-only/signing/
 import { EnvelopeRenderProvider } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { isAccessCodeSatisfied } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { captureServerEvent } from '@documenso/lib/server-only/analytics/capture-server-event';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
 import { viewedDocument } from '@documenso/lib/server-only/document/viewed-document';
@@ -108,10 +109,11 @@ async function handleV1Loader({ params, request }: Route.LoaderArgs) {
     match(accesssAuth)
       .with(DocumentAccessAuth.ACCOUNT, () => user && user.email === recipient.email)
       .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => true) // Allow without account requirement
+      .with('ACCESS_CODE', () => isAccessCodeSatisfied(recipient))
       .exhaustive(),
   );
 
-  if (!isAccessAuthValid) {
+  if (!isAccessAuthValid || !isAccessCodeSatisfied(recipient)) {
     throw data(
       {
         type: 'embed-authentication-required',
@@ -306,6 +308,7 @@ async function handleV2Loader({ params, request }: Route.LoaderArgs) {
     match(accesssAuth)
       .with(DocumentAccessAuth.ACCOUNT, () => user && user.email === recipient.email)
       .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => true)
+      .with('ACCESS_CODE', () => true) // Already enforced by getEnvelopeForRecipientSigning
       .exhaustive(),
   );
 

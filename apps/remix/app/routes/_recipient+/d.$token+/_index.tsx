@@ -65,6 +65,7 @@ const handleV1Loader = async ({ params, request }: Route.LoaderArgs) => {
     match(auth)
       .with(DocumentAccessAuth.ACCOUNT, () => Boolean(session.user))
       .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => true)
+      .with('ACCESS_CODE', () => false)
       .exhaustive(),
   );
 

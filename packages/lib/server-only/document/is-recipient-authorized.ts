@@ -12,12 +12,14 @@ import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { validateTwoFactorTokenFromEmail } from '../2fa/email/validate-2fa-token-from-email';
 import { verifyTwoFactorAuthenticationToken } from '../2fa/verify-2fa-token';
 import { verifyPassword } from '../2fa/verify-password';
+import { withoutAccessCodeMethod } from '../access-code/access-code';
+import { isAccessCodeSatisfied } from '../access-code/assert-access-code';
 
 type IsRecipientAuthorizedOptions = {
   // !: Probably find a better name than 'ACCESS_2FA' if requirements change.
   type: 'ACCESS' | 'ACCESS_2FA' | 'ACTION';
   documentAuthOptions: Envelope['authOptions'];
-  recipient: Pick<Recipient, 'authOptions' | 'email' | 'envelopeId'>;
+  recipient: Pick<Recipient, 'authOptions' | 'email' | 'envelopeId'> & Partial<Pick<Recipient, 'token'>>;
 
   /**
    * The ID of the user who initiated the request.
@@ -62,9 +64,17 @@ export const isRecipientAuthorized = async ({
     recipientAuth: recipient.authOptions,
   });
 
+  // An access code needs this browser's verification cookie, in addition to any other access method.
+  if (
+    type !== 'ACTION' &&
+    !isAccessCodeSatisfied({ token: recipient.token ?? '', authOptions: recipient.authOptions })
+  ) {
+    return false;
+  }
+
   const authMethods: TDocumentAuth[] = match(type)
-    .with('ACCESS', () => derivedRecipientAccessAuth)
-    .with('ACCESS_2FA', () => derivedRecipientAccessAuth)
+    .with('ACCESS', () => withoutAccessCodeMethod(derivedRecipientAccessAuth))
+    .with('ACCESS_2FA', () => withoutAccessCodeMethod(derivedRecipientAccessAuth))
     .with('ACTION', () => derivedRecipientActionAuth)
     .exhaustive();
 

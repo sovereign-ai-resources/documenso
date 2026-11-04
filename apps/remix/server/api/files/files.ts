@@ -1,6 +1,7 @@
 import { getOptionalNonEmbedSession } from '@documenso/auth/server/lib/session/embed-session-restrictions';
 import { APP_DOCUMENT_UPLOAD_SIZE_LIMIT } from '@documenso/lib/constants/app';
 import { AppError } from '@documenso/lib/errors/app-error';
+import { isAccessCodeSatisfiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embedding-presign/verify-embedding-presign-token';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { prisma } from '@documenso/prisma';
@@ -239,6 +240,10 @@ export const filesRoute = new Hono<HonoEnv>()
     async (c) => {
       const { token, envelopeItemId } = c.req.valid('param');
 
+      if (!(await isAccessCodeSatisfiedForToken(token))) {
+        return c.json({ error: 'Access code required' }, 401);
+      }
+
       let envelopeWhereQuery: Prisma.EnvelopeItemWhereUniqueInput = {
         id: envelopeItemId,
         envelope: {
@@ -290,6 +295,10 @@ export const filesRoute = new Hono<HonoEnv>()
     sValidator('param', ZGetEnvelopeItemFileTokenDownloadRequestParamsSchema),
     async (c) => {
       const { token, envelopeItemId, version } = c.req.valid('param');
+
+      if (!(await isAccessCodeSatisfiedForToken(token))) {
+        return c.json({ error: 'Access code required' }, 401);
+      }
 
       let envelopeWhereQuery: Prisma.EnvelopeItemWhereUniqueInput = {
         id: envelopeItemId,

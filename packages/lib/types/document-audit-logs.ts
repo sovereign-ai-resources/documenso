@@ -8,6 +8,7 @@ import { DocumentSource, FieldType } from '@prisma/client';
 import { z } from 'zod';
 
 import { zEmail } from '../utils/zod';
+import { ZDocumentAuditLogEventAccessCodeSchema } from './document-audit-log-access-code';
 import { ZRecipientAccessAuthTypesSchema, ZRecipientActionAuthTypesSchema } from './document-auth';
 
 export const ZDocumentAuditLogTypeSchema = z.enum([
@@ -55,6 +56,7 @@ export const ZDocumentAuditLogTypeSchema = z.enum([
   'DOCUMENT_ACCESS_AUTH_2FA_REQUESTED', // When ACCESS AUTH 2FA is requested.
   'DOCUMENT_ACCESS_AUTH_2FA_VALIDATED', // When ACCESS AUTH 2FA is successfully validated.
   'DOCUMENT_ACCESS_AUTH_2FA_FAILED', // When ACCESS AUTH 2FA validation fails.
+  'DOCUMENT_ACCESS_AUTH_ACCESS_CODE', // When an access code is set, validated, failed, or locked.
 
   // CSC / TSP signing events.
   'DOCUMENT_RECIPIENT_CSC_AUTHENTICATED', // Service-scope OAuth complete; CSC credential persisted.
@@ -859,6 +861,7 @@ export const ZDocumentAuditLogSchema = ZDocumentAuditLogBaseSchema.and(
     ZDocumentAuditLogEventDocumentRecipientRequested2FAEmailSchema,
     ZDocumentAuditLogEventDocumentRecipientValidated2FAEmailSchema,
     ZDocumentAuditLogEventDocumentRecipientFailed2FAEmailSchema,
+    ZDocumentAuditLogEventAccessCodeSchema,
     ZDocumentAuditLogEventDocumentSentSchema,
     ZDocumentAuditLogEventDocumentTitleUpdatedSchema,
     ZDocumentAuditLogEventDocumentExternalIdUpdatedSchema,

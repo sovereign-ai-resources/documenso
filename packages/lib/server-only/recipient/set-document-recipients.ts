@@ -15,6 +15,7 @@ import { jobs } from '../../jobs/client';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
 import { type EnvelopeIdOptions, mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { canRecipientBeModified, isRecipientEmailValidForSending } from '../../utils/recipients';
+import { withAccessCode } from '../access-code/access-code';
 import { assertEnvelopeMutable } from '../envelope/assert-envelope-mutable';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { assertCompatibleRecipientGrouping } from '../signature-level/assert-compatible-recipient-grouping';
@@ -176,7 +177,7 @@ export const setDocumentRecipients = async ({
             envelopeId: envelope.id,
             sendStatus: recipient.role === RecipientRole.CC ? SendStatus.SENT : SendStatus.NOT_SENT,
             signingStatus: recipient.role === RecipientRole.CC ? SigningStatus.SIGNED : SigningStatus.NOT_SIGNED,
-            authOptions,
+            authOptions: withAccessCode(authOptions, recipient._persisted?.authOptions),
           },
           create: {
             name: recipient.name,
