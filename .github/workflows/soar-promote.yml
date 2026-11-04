@@ -1,0 +1,206 @@
+name: 'SOAR promote sync'
+
+# Promotes an approved sync PR (sync/vX.Y.Z into soar) without merging it:
+# a merge would duplicate the fork's stack. scripts/soar/promote.sh tags the
+# old soar tip as soar-archive/<old release>, force-moves soar to the sync
+# branch head, and moves soar-base to the new release, in one atomic push.
+# See SOAR-FORK.md, "Taking a new upstream release".
+#
+# Starts when a sync PR is approved. GitHub runs no pull-request workflows for
+# a PR it cannot merge, which a sync PR into soar often is; then run this by
+# hand with the PR number. Either way it promotes only when:
+#   - a repository admin, or an owner of the whole repo in CODEOWNERS, has
+#     approved the PR's current head commit
+#   - every check on that commit passed, including the guardrails and the
+#     upstream suite listed in REQUIRED_CHECKS
+on:
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Sync PR number'
+        required: true
+        type: number
+
+permissions: {}
+
+env:
+  UPSTREAM_URL: https://github.com/documenso/documenso.git
+  # Job names from soar-guardrails.yml and soar-sync-checks.yml.
+  REQUIRED_CHECKS: |
+    packages/ee untouched
+    Enterprise flags off
+    Denylist
+    gitleaks
+    Lint
+    Build App
+    Build Docker Image
+    E2E Tests
+
+jobs:
+  promote:
+    name: Promote the sync branch
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.review.state == 'approved' &&
+       startsWith(github.event.pull_request.head.ref, 'sync/v') &&
+       github.event.pull_request.base.ref == 'soar' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Job-level, so review events the if above skips never queue in the group
+    # and cannot cancel a pending promotion.
+    concurrency:
+      group: soar-promote
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      statuses: read
+    env:
+      PR: ${{ inputs.pr || github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # The scripts come from soar, the reviewed deployable branch, not from
+      # the PR being promoted.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: soar
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the PR
+        id: pr
+        run: |
+          set -euo pipefail
+          gh pr view "$PR" --repo "$GITHUB_REPOSITORY" \
+            --json state,baseRefName,headRefName,headRefOid,isCrossRepository,body \
+            --jq '[.state, .baseRefName, .headRefName, .headRefOid, (.isCrossRepository|tostring)] | @tsv, .body' >pr.tsv
+          IFS=$'\t' read -r state base head_ref head_sha cross <pr.tsv
+          replayed="$(sed -n 's/^Replayed from soar at `\([0-9a-f]\{40\}\)`.*/\1/p' pr.tsv | head -n1)"
+          fail() { echo "::error::PR #$PR: $*"; exit 1; }
+          [ "$state" = OPEN ] || fail "it is $state, not open"
+          [ "$base" = soar ] || fail "it targets $base, not soar"
+          [ "$cross" = false ] || fail "its branch is in another repository"
+          [[ "$head_ref" =~ ^sync/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]] || fail "'$head_ref' is not a sync branch (sync/vX.Y.Z)"
+          [ -n "$replayed" ] || fail "its body does not name the soar commit it was replayed from"
+          {
+            echo "tag=${BASH_REMATCH[1]}"
+            echo "head_ref=$head_ref"
+            echo "head_sha=$head_sha"
+            echo "replayed=$replayed"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Check the approval
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          # Each reviewer's latest approve, request-changes or dismissal.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews?per_page=100" \
+            --jq '.[] | select(.state != "COMMENTED" and .state != "PENDING") | [.user.login, .state, .commit_id] | @tsv' |
+            awk -F'\t' '{ last[$1] = $0 } END { for (u in last) print last[u] }' >reviews.tsv
+
+          # Owners of the whole repo ("*" lines) in CODEOWNERS; teams are not expanded.
+          owners=""
+          for f in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
+            if [ -f "$f" ]; then
+              owners="$(grep -E '^\*[[:space:]]' "$f" | grep -oE '@[A-Za-z0-9-]+(/[A-Za-z0-9_.-]+)?' | grep -v / | tr -d @ || true)"
+              break
+            fi
+          done
+
+          approver=""
+          while IFS=$'\t' read -r user state commit; do
+            if [ "$state" != APPROVED ] || [ "$commit" != "$HEAD_SHA" ]; then continue; fi
+            perm="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$user/permission" --jq .permission)"
+            if [ "$perm" = admin ] || printf '%s\n' "$owners" | grep -qixF -- "$user"; then
+              approver="$user"
+              break
+            fi
+          done <reviews.tsv
+          if [ -z "$approver" ]; then
+            echo "::error::PR #$PR has no approval of its head $HEAD_SHA from a repository admin or code owner."
+            exit 1
+          fi
+          echo "Approved by $approver at $HEAD_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the checks
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" \
+            --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' >checks.tsv
+          bad=0
+          while IFS=$'\t' read -r name status conclusion; do
+            [ "$name" = 'Promote the sync branch' ] && continue
+            if [ "$status" != completed ]; then
+              echo "::error::Check '$name' has not finished ($status)."
+              bad=1
+            elif ! [[ "$conclusion" =~ ^(success|skipped|neutral)$ ]]; then
+              echo "::error::Check '$name' did not pass ($conclusion)."
+              bad=1
+            fi
+          done <checks.tsv
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            if ! awk -F'\t' -v n="$name" '$1 == n && $2 == "completed" && $3 == "success" { found = 1 } END { exit !found }' checks.tsv; then
+              echo "::error::Required check '$name' has not passed on $HEAD_SHA."
+              bad=1
+            fi
+          done <<<"$REQUIRED_CHECKS"
+          read -r total state < <(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/status" --jq '"\(.total_count) \(.state)"')
+          if [ "$total" -gt 0 ] && [ "$state" != success ]; then
+            echo "::error::Commit statuses on $HEAD_SHA are $state."
+            bad=1
+          fi
+          if [ "$bad" -ne 0 ]; then
+            echo "Not promoting. Once the checks pass, run this workflow by hand with PR $PR."
+            exit 1
+          fi
+          echo "All checks passed on $HEAD_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Get an app token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SOAR_SYNC_APP_ID }}
+          private-key: ${{ secrets.SOAR_SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+
+      - name: Promote
+        env:
+          TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ steps.pr.outputs.tag }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REPLAYED: ${{ steps.pr.outputs.replayed }}
+        run: |
+          set -euo pipefail
+          # Upstream's own release tags, overwriting any fork tag of the same name.
+          git fetch -q --no-tags "$UPSTREAM_URL" '+refs/tags/v*:refs/tags/v*'
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
+          [ "$(git rev-parse "refs/remotes/origin/$HEAD_REF")" = "$HEAD_SHA" ] ||
+            { echo "::error::$HEAD_REF moved after it was checked; approve its new head instead."; exit 1; }
+          SOAR_REMOTE=origin scripts/soar/promote.sh "$TAG" "$HEAD_SHA" "$REPLAYED" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # GitHub may already have marked the PR merged, since its head is now
+      # soar's tip; then closing fails, so each part runs on its own.
+      - name: Close the PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ steps.pr.outputs.tag }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body \
+            "Promoted: \`soar\` is now \`$HEAD_SHA\` on upstream $TAG, and \`soar-base\` names $TAG. The previous \`soar\` is kept as a \`soar-archive/\` tag. Sync PRs are never merged with the merge button." || true
+          gh pr close "$PR" --repo "$GITHUB_REPOSITORY" || true
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$HEAD_REF" --silent ||
+            echo "::warning::Could not delete $HEAD_REF; delete it by hand."
