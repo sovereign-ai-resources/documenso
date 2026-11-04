@@ -79,8 +79,8 @@ jobs:
               echo "::notice::sync/$TARGET already exists; its PR is the place to continue. Delete the branch to replay again."
               MODE=none
             elif [ "$GITHUB_EVENT_NAME" = schedule ] &&
-              gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"Upstream sync $TARGET\" in:title" \
-                --json title --jq '.[].title' | grep -qF "Upstream sync $TARGET:"; then
+              gh issue list --repo "$GITHUB_REPOSITORY" --state open --author app/github-actions \
+                --search "\"Upstream sync $TARGET\" in:title" --json title --jq '.[].title' | grep -qF "Upstream sync $TARGET:"; then
               echo "::notice::An open issue already reports the sync to $TARGET. Close it, or run this workflow by hand, to try again."
               MODE=none
             fi
@@ -185,9 +185,12 @@ jobs:
           # Every release after the current one up to the target, so a security
           # fix in a release that was skipped over is not missed.
           newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]; }
+          tags="$(gh release list --repo "$UPSTREAM_REPO" --limit 100 --exclude-drafts --exclude-pre-releases \
+                    --json tagName --jq '.[].tagName')"
+          printf '%s\n' "$tags" | grep -qxF "$TARGET" ||
+            { echo "::error::Upstream has not published release notes for $TARGET, so its security status is unknown. Close the issue this opens once they are published."; exit 1; }
           : >notes.md
-          for t in $(gh release list --repo "$UPSTREAM_REPO" --limit 100 --exclude-drafts --exclude-pre-releases \
-                       --json tagName --jq '.[].tagName'); do
+          for t in $tags; do
             [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
             if newer "$t" "$CURRENT" && ! newer "$t" "$TARGET"; then
               gh release view "$t" --repo "$UPSTREAM_REPO" --json body --jq .body >>notes.md
@@ -232,6 +235,7 @@ jobs:
           notes_url="https://github.com/${UPSTREAM_REPO}/releases/tag/${TARGET}"
 
           head="$(git rev-parse HEAD)"
+          replayed="$(git rev-parse soar)"
           {
             echo "Replays this fork's stack onto upstream [$TARGET]($notes_url) (from $CURRENT)."
             echo
@@ -246,6 +250,8 @@ jobs:
               echo
             fi
             echo "Head: \`$head\` on $TARGET. Upstream release notes: $notes_url"
+            echo
+            echo "Replayed from soar at \`$replayed\`. Promotion is refused if soar has moved since; then delete this branch and run the sync again."
             echo
             echo "Checks on this PR: guardrails (soar-guardrails) and the upstream suite (soar-sync-checks: lint, build, Docker image, Playwright)."
             echo
@@ -303,7 +309,7 @@ jobs:
             } >issue.md
           else
             title="Upstream sync $TARGET: failed"
-            echo "The sync to upstream $TARGET failed before its PR was opened. See $RUN_URL. Close this issue once fixed; the next daily run retries." >issue.md
+            echo "The sync to upstream $TARGET failed before its PR was opened. See $RUN_URL. If the branch sync/$TARGET was pushed, delete it: the daily run skips a release whose sync branch exists. Then close this issue once fixed; the next daily run retries." >issue.md
           fi
           echo "Run: $RUN_URL" >>issue.md
           gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file issue.md

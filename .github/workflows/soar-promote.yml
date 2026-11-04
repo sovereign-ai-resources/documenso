@@ -76,18 +76,21 @@ jobs:
         run: |
           set -euo pipefail
           gh pr view "$PR" --repo "$GITHUB_REPOSITORY" \
-            --json state,baseRefName,headRefName,headRefOid,isCrossRepository \
-            --jq '[.state, .baseRefName, .headRefName, .headRefOid, (.isCrossRepository|tostring)] | @tsv' >pr.tsv
+            --json state,baseRefName,headRefName,headRefOid,isCrossRepository,body \
+            --jq '[.state, .baseRefName, .headRefName, .headRefOid, (.isCrossRepository|tostring)] | @tsv, .body' >pr.tsv
           IFS=$'\t' read -r state base head_ref head_sha cross <pr.tsv
+          replayed="$(sed -n 's/^Replayed from soar at `\([0-9a-f]\{40\}\)`.*/\1/p' pr.tsv | head -n1)"
           fail() { echo "::error::PR #$PR: $*"; exit 1; }
           [ "$state" = OPEN ] || fail "it is $state, not open"
           [ "$base" = soar ] || fail "it targets $base, not soar"
           [ "$cross" = false ] || fail "its branch is in another repository"
           [[ "$head_ref" =~ ^sync/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]] || fail "'$head_ref' is not a sync branch (sync/vX.Y.Z)"
+          [ -n "$replayed" ] || fail "its body does not name the soar commit it was replayed from"
           {
             echo "tag=${BASH_REMATCH[1]}"
             echo "head_ref=$head_ref"
             echo "head_sha=$head_sha"
+            echo "replayed=$replayed"
           } >>"$GITHUB_OUTPUT"
 
       - name: Check the approval
@@ -176,6 +179,7 @@ jobs:
           TAG: ${{ steps.pr.outputs.tag }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REPLAYED: ${{ steps.pr.outputs.replayed }}
         run: |
           set -euo pipefail
           # Upstream's own release tags, overwriting any fork tag of the same name.
@@ -184,13 +188,19 @@ jobs:
           git fetch -q --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
           [ "$(git rev-parse "refs/remotes/origin/$HEAD_REF")" = "$HEAD_SHA" ] ||
             { echo "::error::$HEAD_REF moved after it was checked; approve its new head instead."; exit 1; }
-          SOAR_REMOTE=origin scripts/soar/promote.sh "$TAG" "$HEAD_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+          SOAR_REMOTE=origin scripts/soar/promote.sh "$TAG" "$HEAD_SHA" "$REPLAYED" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # GitHub may already have marked the PR merged, since its head is now
+      # soar's tip; then closing fails, so each part runs on its own.
       - name: Close the PR
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           TAG: ${{ steps.pr.outputs.tag }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch --comment \
-            "Promoted: \`soar\` is now \`$HEAD_SHA\` on upstream $TAG, and \`soar-base\` names $TAG. The previous \`soar\` is kept as a \`soar-archive/\` tag. Closed rather than merged, as all sync PRs are."
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body \
+            "Promoted: \`soar\` is now \`$HEAD_SHA\` on upstream $TAG, and \`soar-base\` names $TAG. The previous \`soar\` is kept as a \`soar-archive/\` tag. Sync PRs are never merged with the merge button." || true
+          gh pr close "$PR" --repo "$GITHUB_REPOSITORY" || true
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$HEAD_REF" --silent ||
+            echo "::warning::Could not delete $HEAD_REF; delete it by hand."

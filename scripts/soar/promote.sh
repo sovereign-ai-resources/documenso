@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Promotes an approved sync branch: makes it the fork's deployable branch.
 #
-# Usage: promote.sh <new tag> <sync ref>
-#   <new tag>   the upstream release the sync branch was replayed onto
-#   <sync ref>  the sync branch head, for example sync/v2.22.0 or a commit
+# Usage: promote.sh <new tag> <sync ref> [<replayed soar>]
+#   <new tag>        the upstream release the sync branch was replayed onto
+#   <sync ref>       the sync branch head, for example sync/v2.22.0 or a commit
+#   <replayed soar>  the full SHA of the soar commit the sync branch was
+#                    replayed from; when given, promotion is refused if soar
+#                    has moved since, so a fork change merged after the replay
+#                    is never dropped
 #
 # In one atomic push to $SOAR_REMOTE (default: origin) it:
 #   - tags the current soar tip as soar-archive/<old release>, where <old
@@ -19,10 +23,15 @@ set -euo pipefail
 
 new_tag="${1:-}"
 sync_ref="${2:-}"
+replayed="${3:-}"
 remote="${SOAR_REMOTE:-origin}"
 release_re='^v[0-9]+\.[0-9]+\.[0-9]+$'
 if [ -z "$new_tag" ] || [ -z "$sync_ref" ]; then
-  echo "usage: promote.sh <new tag> <sync ref>" >&2
+  echo "usage: promote.sh <new tag> <sync ref> [<replayed soar>]" >&2
+  exit 1
+fi
+if [ -n "$replayed" ] && ! [[ "$replayed" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "promote: <replayed soar> must be a full commit SHA, not '$replayed'" >&2
   exit 1
 fi
 
@@ -34,6 +43,9 @@ git fetch -q --no-tags "$remote" \
 
 old_soar="$(git rev-parse "refs/remotes/$remote/soar")"
 old_base="$(git rev-parse "refs/tags/soar-base^{commit}")"
+if [ -n "$replayed" ] && [ "$replayed" != "$old_soar" ]; then
+  refuse "soar moved since the replay (replayed $replayed, soar is now $old_soar); run the sync again"
+fi
 old_tag="$(git tag --points-at "$old_base" -l 'v*' | grep -E "$release_re" | sort -V | tail -n1 || true)"
 [ -n "$old_tag" ] || refuse "soar-base ($old_base) is not an upstream release tag; fetch upstream tags first"
 

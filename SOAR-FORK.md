@@ -98,16 +98,19 @@ commit and upstream conflicts show up file by file. Three workflows do it:
      it checks that the replay reproduces `soar` exactly and pushes nothing.
 2. **On the pushed sync branch**, `soar-guardrails.yml` (against the new
    release, via `scripts/soar/sync-base.sh`) and `soar-sync-checks.yml` (lint,
-   build, Docker image, Playwright) run. They run on push, not on the PR,
-   because GitHub runs no pull_request workflows for a PR it cannot merge, and
-   a sync PR into `soar` often cannot be merged. Their results show on the PR.
+   build, Docker image, Playwright) run. They run on push, because GitHub runs
+   no pull_request workflows for a PR it cannot merge, and a sync PR into
+   `soar` often cannot be merged. Their results show on the PR.
 3. **`soar-promote.yml`** runs when the sync PR is approved. It checks that a
    repository admin (or a whole-repo owner in CODEOWNERS) approved the PR's
-   current head, and that every check on that head passed. Then
+   current head, and that every check on that head passed. The sync PR names
+   the `soar` commit it was replayed from, and promotion is refused if `soar`
+   has moved since, so a fork change merged in the meantime is never dropped:
+   delete the sync branch and run the sync again. Then
    `scripts/soar/promote.sh`, in one atomic push, tags the old `soar` tip as
    `soar-archive/<old tag>`, force-moves `soar` to the sync branch (leased on
-   the tip it read), and moves `soar-base` to the new tag. It closes the PR
-   with a comment and deletes the branch. If approving does not start it (the
+   the tip it read), and moves `soar-base` to the new tag. It comments on and
+   closes the PR and deletes the branch. If approving does not start it (the
    same unmergeable-PR rule), run it by hand with the PR number.
 
 The sync PR is reviewed but **never merged**: a GitHub merge would duplicate
@@ -136,15 +139,25 @@ These are set by a repository admin; nothing in this repo can set them.
   `SOAR_SYNC_APP_ID` and a private key as `SOAR_SYNC_APP_PRIVATE_KEY`. The
   workflows push with its token, not `GITHUB_TOKEN`, because `GITHUB_TOKEN`
   cannot push workflow files and its pushes and PRs start no workflows.
-- **Actions enabled** on this fork, including scheduled workflows.
-- **Protect `soar`** (ruleset or branch protection): require a PR, block force
-  pushes and deletion, and allow only the sync App to bypass. Then only the
-  promote workflow can force-move `soar`. Allow only squash merges for PRs
-  into `soar`, so each fork change stays one commit.
-- **Protect `sync/v*`**: only the sync App may create or update these
-  branches, so the head a reviewer approves is what the automation built.
-- **Protect the tags `soar-base` and `soar-archive/*`**: only the sync App may
-  create, move or delete them.
+- **Actions enabled** on this fork, including scheduled workflows, with
+  `soar` as the default branch (scheduled workflows run only from it).
+- **Upstream's `deploy.yml` and `publish.yml` workflows disabled** in the
+  Actions settings. `deploy.yml` runs on every tag push, and promotion pushes
+  the `soar-base` and `soar-archive/*` tags.
+- **The `soar` ruleset.** It already requires a PR with the four guard checks
+  (packages/ee untouched, Enterprise flags off, Denylist, gitleaks), allows
+  only squash merges so each fork change stays one commit, and blocks force
+  pushes and deletion. Only repository admins bypass it. Keep all of that.
+  Once the sync App exists, **add the App as a bypass actor** on this
+  ruleset. Without it the promote workflow's force-move of `soar` is
+  rejected and nothing is promoted; with it, only the promote workflow and
+  admins can force-move `soar`.
+- **Protect `sync/*`** once the App exists: a branch ruleset that only the
+  App bypasses, so only it can create, update or delete these branches and
+  the head a reviewer approves is what the automation built.
+- **Protect the tags `soar-base` and `soar-archive/*`** once the App exists:
+  a tag ruleset that only the App bypasses, so only it can create, move or
+  delete them.
 
 ## Rules that keep the replay cheap
 
@@ -163,8 +176,9 @@ These are set by a repository admin; nothing in this repo can set them.
 ## What CI checks
 
 `.github/workflows/soar-guardrails.yml` runs on every PR into `soar` and every
-push to `soar`, comparing against `soar-base`, and on every push to a sync
-branch, comparing against the upstream release that branch was replayed onto:
+push to `soar`, comparing against `soar-base`. For a sync branch, on push and
+on a PR from it, it compares against the upstream release that branch was
+replayed onto, and fails for a `sync/` branch not named `sync/vX.Y.Z`:
 
 | Job | Script | Fails when |
 |---|---|---|
@@ -173,6 +187,7 @@ branch, comparing against the upstream release that branch was replayed onto:
 | Denylist | `scripts/soar/check-denylist.sh` | an added line, the path of an added or modified file (binary and empty files included), a commit message, or an author/committer identity contains a denylisted value |
 | gitleaks | pinned, checksum-verified gitleaks release with `.gitleaks.toml` | gitleaks reports a possible secret in the fork's commits |
 | Divergence report | `scripts/soar/divergence-report.sh` | never; it lists the upstream files the stack modifies, for review |
+| Fork script tests | `scripts/soar/test-guardrails.sh`, `scripts/soar/test-sync.sh` | the guardrail or sync scripts no longer behave as their tests expect |
 
 `scripts/soar/denylist.txt` holds only SHA-256 hashes, so this repo does not
 spell out what it guards. The `check-*` scripts and `divergence-report.sh`

@@ -3,9 +3,11 @@ name: 'SOAR fork guardrails'
 # Checks every change to this fork's deployable branch against the upstream
 # release it is based on (the tag soar-base). See SOAR-FORK.md.
 #
-# Sync branches (sync/vX.Y.Z) are checked on push instead, against the upstream
+# Sync branches (sync/vX.Y.Z) are also checked on push, against the upstream
 # release they were replayed onto: a sync PR is often one GitHub cannot merge
-# into soar, and GitHub runs no pull_request workflows for such a PR.
+# into soar, and GitHub runs no pull_request workflows for such a PR. A PR
+# from any sync/ branch is checked against that release too, and fails when
+# the branch name is not sync/vX.Y.Z.
 on:
   pull_request:
     branches: ['soar']
@@ -28,60 +30,56 @@ jobs:
     name: packages/ee untouched
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !(startsWith(github.head_ref, 'sync/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the sync branch's upstream release as the base
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'sync/')
-        run: scripts/soar/sync-base.sh "$GITHUB_REF_NAME" >>"$GITHUB_ENV"
+        if: startsWith(github.head_ref || github.ref_name, 'sync/')
+        run: scripts/soar/sync-base.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >>"$GITHUB_ENV"
       - run: scripts/soar/check-ee-untouched.sh
 
   enterprise_flags:
     name: Enterprise flags off
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !(startsWith(github.head_ref, 'sync/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the sync branch's upstream release as the base
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'sync/')
-        run: scripts/soar/sync-base.sh "$GITHUB_REF_NAME" >>"$GITHUB_ENV"
+        if: startsWith(github.head_ref || github.ref_name, 'sync/')
+        run: scripts/soar/sync-base.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >>"$GITHUB_ENV"
       - run: scripts/soar/check-enterprise-flags.sh
 
   denylist:
     name: Denylist
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !(startsWith(github.head_ref, 'sync/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the sync branch's upstream release as the base
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'sync/')
-        run: scripts/soar/sync-base.sh "$GITHUB_REF_NAME" >>"$GITHUB_ENV"
+        if: startsWith(github.head_ref || github.ref_name, 'sync/')
+        run: scripts/soar/sync-base.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >>"$GITHUB_ENV"
       - run: scripts/soar/check-denylist.sh
 
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !(startsWith(github.head_ref, 'sync/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the sync branch's upstream release as the base
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'sync/')
-        run: scripts/soar/sync-base.sh "$GITHUB_REF_NAME" >>"$GITHUB_ENV"
+        if: startsWith(github.head_ref || github.ref_name, 'sync/')
+        run: scripts/soar/sync-base.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >>"$GITHUB_ENV"
       - name: Install pinned gitleaks
         run: |
           set -euo pipefail
@@ -100,13 +98,33 @@ jobs:
     name: Divergence report
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !(startsWith(github.head_ref, 'sync/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Use the sync branch's upstream release as the base
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'sync/')
-        run: scripts/soar/sync-base.sh "$GITHUB_REF_NAME" >>"$GITHUB_ENV"
+        if: startsWith(github.head_ref || github.ref_name, 'sync/')
+        run: scripts/soar/sync-base.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" >>"$GITHUB_ENV"
       - run: scripts/soar/divergence-report.sh
+
+  script_tests:
+    name: Fork script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install pinned gitleaks
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$dir/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $dir/$tarball" | sha256sum -c -
+          tar -xzf "$dir/$tarball" -C "$dir" gitleaks
+          sudo install -m 0755 "$dir/gitleaks" /usr/local/bin/gitleaks
+      - run: scripts/soar/test-guardrails.sh
+      - run: scripts/soar/test-sync.sh

@@ -161,7 +161,15 @@ echo "scenario: approve-and-promote, then a replay against the same tag reproduc
   old_soar="$(git rev-parse soar)"
   sync_head="$(git rev-parse sync/v1.1.0)"
   expect 2 "promote.sh refuses a target that is not newer than soar-base" "$SOAR_DIR/promote.sh" v1.0.0 sync/v1.0.0
-  expect 0 "promote.sh succeeds" "$SOAR_DIR/promote.sh" v1.1.0 sync/v1.1.0
+  expect 2 "promote.sh refuses a sync ref not based on the target" "$SOAR_DIR/promote.sh" v1.1.0 soar
+  check "the refusal names the missing base" log_has 'is not based on v1.1.0'
+  expect 2 "promote.sh refuses when soar moved since the replay" \
+    "$SOAR_DIR/promote.sh" v1.1.0 sync/v1.1.0 "$(git rev-parse v1.0.0)"
+  check "the refusal says soar moved" log_has 'soar moved since'
+  check "origin soar did not move" test "$(git --git-dir="$ORIGIN" rev-parse refs/heads/soar)" = "$old_soar"
+  check "origin soar-base did not move" test "$(git --git-dir="$ORIGIN" rev-parse 'refs/tags/soar-base^{commit}')" = "$(git rev-parse 'v1.0.0^{commit}')"
+  expect 1 "promote.sh rejects a replayed soar that is not a full SHA" "$SOAR_DIR/promote.sh" v1.1.0 sync/v1.1.0 no-such-ref
+  expect 0 "promote.sh succeeds given the soar it replayed" "$SOAR_DIR/promote.sh" v1.1.0 sync/v1.1.0 "$old_soar"
   check "origin soar is the sync head" test "$(git --git-dir="$ORIGIN" rev-parse refs/heads/soar)" = "$sync_head"
   check "origin soar-base is v1.1.0" test "$(git --git-dir="$ORIGIN" rev-parse 'refs/tags/soar-base^{commit}')" = "$(git rev-parse 'v1.1.0^{commit}')"
   check "origin soar-archive/v1.0.0 is the old soar" test "$(git --git-dir="$ORIGIN" rev-parse 'refs/tags/soar-archive/v1.0.0^{commit}')" = "$old_soar"
