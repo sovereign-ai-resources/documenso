@@ -25,7 +25,6 @@ if [ "$#" -eq 0 ]; then
   set -- "$base..HEAD"
 fi
 
-# Commits to scan, oldest first. An empty range is a pass.
 mapfile -t commits < <(git rev-list --reverse "$@")
 [ "${#commits[@]}" -eq 0 ] && { echo "denylist: no commits to scan"; exit 0; }
 
@@ -76,10 +75,12 @@ for raw in sys.stdin.buffer:
     if line.startswith("+++ "):
         p = line[4:]
         p = p[2:] if p.startswith("b/") else p
-        path = "<path redacted>" if hits(p) else p
-        if path == "<path redacted>":
+        if hits(p):
+            path = "<path redacted>"
             print(f"denylist: commit {commit[:12]}: a file path contains a denylisted value")
             found += 1
+        else:
+            path = p
         continue
     if line.startswith("+") and hits(line[1:]):
         print(f"denylist: commit {commit[:12]}: {path}: an added line contains a denylisted value")

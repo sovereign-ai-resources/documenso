@@ -19,9 +19,13 @@ command -v gitleaks >/dev/null 2>&1 || {
   exit 1
 }
 
+gitleaks_config=()
+toplevel_config="$(git rev-parse --show-toplevel)/.gitleaks.toml"
+[ -f "$toplevel_config" ] && gitleaks_config=(--config "$toplevel_config")
+
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
-  [ "$local_sha" = "$zero" ] && continue # deleting a remote ref: nothing to scan
+  [ "$local_sha" = "$zero" ] && continue
 
   if [ "$remote_sha" != "$zero" ] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
     range=("$remote_sha..$local_sha")
@@ -37,7 +41,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if ! "$here/check-denylist.sh" "${range[@]}"; then
     status=1
   fi
-  if ! gitleaks git --no-banner --redact --log-opts="${range[*]}" .; then
+  if ! gitleaks git --no-banner --redact "${gitleaks_config[@]}" --log-opts="${range[*]}" .; then
     echo "soar pre-push: gitleaks found a possible secret in $local_ref" >&2
     status=1
   fi

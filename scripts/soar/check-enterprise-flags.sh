@@ -15,15 +15,12 @@ git rev-parse -q --verify "$base^{commit}" >/dev/null || {
 
 flags='cfr21|instanceCscSigning|authenticationPortal|emailDomains|hipaa|cscQesSigning'
 
-# This script and its test necessarily contain the patterns they look for.
 git diff --no-color --no-renames --unified=0 --no-ext-diff "$base" HEAD -- . \
   ':(exclude)scripts/soar/check-enterprise-flags.sh' \
   ':(exclude)scripts/soar/test-guardrails.sh' |
   awk -v flags="$flags" '
     BEGIN {
-      # flag: true, "flag": true, flag = true, flag=true, flag: !0
       assign = "(^|[^A-Za-z0-9_])(" flags ")[\"'\'']?[[:space:]]*(:|=|===?)[[:space:]]*(true|!0)([^A-Za-z0-9_]|$)"
-      # SQL or JSON patches that name a flag and set true on the same line
       named = "(^|[^A-Za-z0-9_])(" flags ")([^A-Za-z0-9_]|$)"
       found = 0
     }
