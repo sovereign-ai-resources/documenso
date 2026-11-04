@@ -1,0 +1,109 @@
+---
+title: Azure Key Vault
+description: Sign documents with a non-exportable RSA key held in Azure Key Vault.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+The `azure-kv` transport signs with a key stored in Azure Key Vault. Documenso hashes the data to sign locally and sends only the digest to Key Vault, so neither the document nor the private key leaves its home. With a Key Vault Premium vault or a Managed HSM, the key can be an HSM-protected, non-exportable key.
+
+<Callout type="info">
+  Only RSA keys are supported. Documenso signs with RSA PKCS#1 v1.5 (`RS256`, `RS384`, or `RS512`, matching the digest
+  algorithm). A certificate with an EC key is rejected.
+</Callout>
+
+Documenso checks the configuration without contacting Key Vault: a missing key ID or certificate chain, or a certificate
+with a non-RSA or expired key, makes the `/api/health` certificate check fail. Every signature Key Vault returns is
+verified against the signing certificate before it is embedded, so a key that does not match the certificate fails
+the seal instead of producing a document whose signature cannot be validated.
+
+## Prerequisites
+
+{/* prettier-ignore */}
+<Steps>
+<Step>
+### Create the key and its certificate
+
+Create an RSA key in Key Vault and obtain a certificate for it from your Certificate Authority (see [Creating the key and certificate](#creating-the-key-and-certificate) below).
+
+</Step>
+<Step>
+### Grant Documenso access to the key
+
+Give the identity Documenso runs as permission to sign with the key, for example the **Key Vault Crypto User** role scoped to the key (Azure RBAC) or the `sign` key permission (access policies).
+
+</Step>
+<Step>
+### Export the certificate chain
+
+Export the signing certificate and its intermediate certificates as PEM. Documenso embeds them in every signature.
+
+</Step>
+</Steps>
+
+## Environment Variables
+
+| Variable                                   | Description                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `NEXT_PRIVATE_SIGNING_TRANSPORT`           | Set to `azure-kv`                                                                   |
+| `NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID`     | Full key identifier URL, including the key version                                  |
+| `NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN` | Certificate chain as PEM, signing certificate first, or the same PEM base64-encoded |
+| `NEXT_PRIVATE_SIGNING_AZURE_KV_CLIENT_ID`  | Optional. Client ID of a user-assigned managed identity                             |
+
+Documenso authenticates with [`DefaultAzureCredential`](https://learn.microsoft.com/azure/developer/javascript/sdk/authentication/credential-chains#use-defaultazurecredential-for-flexibility). In Azure it uses the workload's managed identity; set `NEXT_PRIVATE_SIGNING_AZURE_KV_CLIENT_ID` when that identity is user-assigned. For local development, signing in with `az login` is enough.
+
+## Configuration Example
+
+```bash
+NEXT_PRIVATE_SIGNING_TRANSPORT=azure-kv
+NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID=https://my-vault.vault.azure.net/keys/document-signing/0123456789abcdef0123456789abcdef
+NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN="$(cat /opt/documenso/signing-chain.pem)"
+NEXT_PRIVATE_SIGNING_TIMESTAMP_AUTHORITY=http://timestamp.digicert.com
+```
+
+<Callout type="warn">
+  Include the key version in `NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID`. Without it, Key Vault signs with the latest
+  version of the key, which stops matching the configured certificate as soon as the key is rotated.
+</Callout>
+
+Pair the transport with a [timestamp server](/docs/self-hosting/configuration/signing-certificate/timestamp-server) so signatures carry a trusted timestamp and long-term validation data and stay valid after the certificate expires.
+
+## Creating the Key and Certificate
+
+One way to get a CA-issued certificate for a non-exportable key is a Key Vault certificate with an unknown issuer: Key Vault generates the key and a certificate signing request (CSR), and you merge the CA's response back in.
+
+```bash
+# A policy for a non-exportable 3072-bit HSM-backed RSA key
+cat > policy.json <<'JSON'
+{
+  "issuerParameters": { "name": "Unknown" },
+  "keyProperties": { "exportable": false, "keyType": "RSA-HSM", "keySize": 3072, "reuseKey": false },
+  "secretProperties": { "contentType": "application/x-pem-file" },
+  "x509CertificateProperties": {
+    "subject": "CN=Example Organization, O=Example Organization, C=US",
+    "keyUsage": ["digitalSignature", "nonRepudiation"],
+    "validityInMonths": 12
+  }
+}
+JSON
+
+az keyvault certificate create --vault-name my-vault --name document-signing --policy @policy.json
+
+# Download the CSR and submit it to your Certificate Authority
+az keyvault certificate pending show --vault-name my-vault --name document-signing --query csr -o tsv
+
+# Merge the issued certificate and chain from the CA
+az keyvault certificate pending merge --vault-name my-vault --name document-signing --file issued-chain.pem
+
+# The key identifier to use for NEXT_PRIVATE_SIGNING_AZURE_KV_KEY_ID
+az keyvault key show --vault-name my-vault --name document-signing --query key.kid -o tsv
+```
+
+Some Certificate Authorities require proof that the key was generated in and cannot leave an HSM. Key Vault can produce [key attestation](https://learn.microsoft.com/azure/key-vault/keys/how-to-key-attestation) for HSM-backed keys; check what your CA accepts before creating the key.
+
+To build `NEXT_PRIVATE_SIGNING_AZURE_KV_CERT_CHAIN`, concatenate the signing certificate and then its intermediates in PEM form. If your environment does not preserve newlines, base64-encode the whole PEM:
+
+```bash
+base64 -w 0 signing-chain.pem
+```

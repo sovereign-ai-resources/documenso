@@ -12,11 +12,17 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@azure/identity": "^4.14.0",
+    "@azure/keyvault-keys": "^4.10.2",
     "@google-cloud/kms": "^5.2.1",
     "@google-cloud/secret-manager": "^6.1.1",
     "ts-pattern": "^5.9.0"
   },
   "devDependencies": {
-    "@documenso/tsconfig": "*"
+    "@documenso/tsconfig": "*",
+    "@peculiar/x509": "^1.14.3",
+    "asn1js": "^3.0.10",
+    "pkijs": "^3.4.0",
+    "vitest": "^4.1.11"
   }
 }
