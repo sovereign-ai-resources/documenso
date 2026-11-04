@@ -12,7 +12,7 @@ export const getCertificateStatus = async () => {
   const transport = NEXT_PRIVATE_SIGNING_TRANSPORT();
 
   // Cannot inspect a remote HSM or CSC provider from this process.
-  if (transport === 'gcloud-hsm' || transport === 'csc') {
+  if (transport === 'gcloud-hsm' || transport === 'azure-kv' || transport === 'csc') {
     return { isAvailable: true };
   }
 

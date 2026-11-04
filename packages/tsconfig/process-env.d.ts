@@ -46,7 +46,7 @@ declare namespace NodeJS {
     NEXT_PRIVATE_UPLOAD_AZURE_CONTAINER?: string;
     NEXT_PRIVATE_UPLOAD_AZURE_ENDPOINT?: string;
 
-    NEXT_PRIVATE_SIGNING_TRANSPORT?: 'local' | 'http' | 'gcloud-hsm' | 'csc';
+    NEXT_PRIVATE_SIGNING_TRANSPORT?: 'local' | 'http' | 'gcloud-hsm' | 'azure-kv' | 'csc';
     /**
      * Derived from `NEXT_PRIVATE_SIGNING_TRANSPORT` in `createPublicEnv()`; do
      * not set manually. Lets the client detect CSC mode for authoring UI gating.
