@@ -44,6 +44,7 @@ import { assertCompatibleRecipientRole } from '../signature-level/assert-compati
 import { resolveSignatureLevel } from '../signature-level/resolve-signature-level';
 import { getTeamSettings } from '../team/get-team-settings';
 import { assertUserNotDisabledById } from '../user/assert-user-not-disabled';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 type CreateEnvelopeRecipientFieldOptions = TFieldAndMeta & {
@@ -167,6 +168,8 @@ export const createEnvelope = async ({
       message: 'Team not found',
     });
   }
+
+  await assertTeamInSingleOrganisation({ teamId: team.id });
 
   // Enforce the organisation document-creation limit before doing any work.
   // Only documents count towards the limit (templates are exempt).

@@ -43,6 +43,7 @@ import { getRecipientsWithMissingFields, isRecipientEmailValidForSending } from 
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { insertFormValuesInPdf } from '../pdf/insert-form-values-in-pdf';
 import { assertUserNotDisabledById } from '../user/assert-user-not-disabled';
+import { assertTeamInSingleOrganisation } from '../user/single-organisation';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type SendDocumentOptions = {
@@ -106,6 +107,8 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
   if (!envelope) {
     throw new Error('Document not found');
   }
+
+  await assertTeamInSingleOrganisation({ teamId: envelope.teamId });
 
   if (envelope.recipients.length === 0) {
     throw new Error('Document has no recipients');

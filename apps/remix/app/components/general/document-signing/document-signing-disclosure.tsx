@@ -1,3 +1,4 @@
+import { SIGNATURE_DISCLOSURE_URL } from '@documenso/lib/constants/signature-disclosure';
 import { cn } from '@documenso/ui/lib/utils';
 
 import { Trans } from '@lingui/react/macro';
@@ -17,7 +18,7 @@ export const DocumentSigningDisclosure = ({ className, ...props }: DocumentSigni
       <span className="mt-2 block">
         <Trans>
           Read the full{' '}
-          <Link className="text-documenso-700 underline" to="/articles/signature-disclosure" target="_blank">
+          <Link className="text-documenso-700 underline" to={SIGNATURE_DISCLOSURE_URL()} target="_blank">
             signature disclosure
           </Link>
           .
