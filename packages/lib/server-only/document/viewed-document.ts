@@ -4,13 +4,13 @@ import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-
 import { prisma } from '@documenso/prisma';
 import { EnvelopeType, ReadStatus, SendStatus, WebhookTriggerEvents } from '@prisma/client';
 
-import type { TDocumentAccessAuthTypes } from '../../types/document-auth';
+import type { TRecipientAccessAuthTypes } from '../../types/document-auth';
 import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../types/webhook-payload';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type ViewedDocumentOptions = {
   token: string;
-  recipientAccessAuth?: TDocumentAccessAuthTypes[];
+  recipientAccessAuth?: TRecipientAccessAuthTypes[];
   requestMetadata?: RequestMetadata;
 };
 

@@ -40,6 +40,7 @@ import { type EnvelopeIdOptions, mapSecondaryIdToDocumentId } from '../../utils/
 import { toCheckboxCustomText, toRadioCustomText } from '../../utils/fields';
 import { getRecipientsInActiveSigningStep } from '../../utils/recipient-groups';
 import { getRecipientsWithMissingFields, isRecipientEmailValidForSending } from '../../utils/recipients';
+import { assertAccessCodesIssued } from '../access-code/assert-access-code';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { insertFormValuesInPdf } from '../pdf/insert-form-values-in-pdf';
 import { assertUserNotDisabledById } from '../user/assert-user-not-disabled';
@@ -127,6 +128,8 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
   if (isDocumentCompleted(envelope.status)) {
     throw new Error('Can not send completed document');
   }
+
+  assertAccessCodesIssued(envelope.recipients);
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
 

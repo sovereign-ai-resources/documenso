@@ -1,4 +1,5 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerifiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { getEmbedSignatureSettingsByTeamId } from '@documenso/lib/server-only/embedding/get-embed-signature-settings';
 import { upsertEmbedSignature } from '@documenso/lib/server-only/embedding/upsert-embed-signature';
 import { assertRateLimit } from '@documenso/lib/server-only/rate-limit/rate-limit-middleware';
@@ -18,6 +19,8 @@ export const persistEmbedSignatureRoute = procedure
   .output(ZPersistEmbedSignatureResponseSchema)
   .mutation(async ({ input, ctx: { metadata } }) => {
     const { token, clientUserId, signature } = input;
+
+    await assertAccessCodeVerifiedForToken(token);
 
     const recipient = await prisma.recipient.findFirst({
       where: {

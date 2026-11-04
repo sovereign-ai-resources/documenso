@@ -1,3 +1,4 @@
+import { isAccessCodeSatisfiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
 import type { Prisma } from '@prisma/client';
@@ -28,6 +29,10 @@ route.get(
 
     if (!token) {
       return c.json({ error: 'Not found' }, 404);
+    }
+
+    if (!(await isAccessCodeSatisfiedForToken(token))) {
+      return c.json({ error: 'Access code required' }, 401);
     }
 
     // Recipient token based query.

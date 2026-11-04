@@ -29,6 +29,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { match } from 'ts-pattern';
+import { RecipientAccessCodeControl } from './recipient-access-code-control';
 
 export type DocumentPageViewRecipientsProps = {
   envelope: TEnvelope;
@@ -221,6 +222,13 @@ export const DocumentPageViewRecipients = ({ envelope, documentRootPath }: Docum
                     </Tooltip>
                   </TooltipProvider>
                 )}
+
+              <RecipientAccessCodeControl
+                envelopeId={envelope.id}
+                envelopeType={envelope.type}
+                envelopeStatus={envelope.status}
+                recipient={recipient}
+              />
             </div>
           </li>
         ))}

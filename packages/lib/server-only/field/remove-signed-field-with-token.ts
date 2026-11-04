@@ -6,6 +6,7 @@ import { getRecipientFieldsWhereInput } from '@documenso/lib/utils/recipient-que
 import { assertRecipientNotExpired } from '@documenso/lib/utils/recipients';
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, RecipientRole, SigningStatus } from '@prisma/client';
+import { assertAccessCodeVerified } from '../access-code/assert-access-code';
 
 export type RemovedSignedFieldWithTokenOptions = {
   token: string;
@@ -23,6 +24,8 @@ export const removeSignedFieldWithToken = async ({
       token,
     },
   });
+
+  assertAccessCodeVerified(recipient);
 
   const field = await prisma.field.findFirstOrThrow({
     where: {

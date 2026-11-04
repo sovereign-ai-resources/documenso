@@ -46,6 +46,7 @@ import {
   isRecipientBefore,
   sortRecipientsBySigningPosition,
 } from '../../utils/recipients';
+import { assertNoAccessCodeOnDirectTemplate } from '../access-code/assert-access-code';
 import { sendDocument } from '../document/send-document';
 import { validateFieldAuth } from '../document/validate-field-auth';
 import { incrementDocumentId } from '../envelope/increment-id';
@@ -196,6 +197,8 @@ export const createDocumentFromDirectTemplate = async ({
     });
   }
 
+  assertNoAccessCodeOnDirectTemplate(recipients);
+
   if (directTemplateEnvelope.updatedAt.getTime() !== templateUpdatedAt.getTime()) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, { message: 'Template no longer matches' });
   }
@@ -210,6 +213,7 @@ export const createDocumentFromDirectTemplate = async ({
   const isAccessAuthValid = match(derivedRecipientAccessAuth.at(0))
     .with(DocumentAccessAuth.ACCOUNT, () => user && user?.email === directRecipientEmail)
     .with(DocumentAccessAuth.TWO_FACTOR_AUTH, () => false) // Not supported for direct templates
+    .with('ACCESS_CODE', () => false)
     .with(undefined, () => true)
     .exhaustive();
 

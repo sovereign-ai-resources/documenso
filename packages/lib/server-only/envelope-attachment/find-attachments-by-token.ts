@@ -1,5 +1,6 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { prisma } from '@documenso/prisma';
+import { assertAccessCodeVerifiedForToken } from '../access-code/assert-access-code';
 
 export type FindAttachmentsByTokenOptions = {
   envelopeId: string;
@@ -7,6 +8,8 @@ export type FindAttachmentsByTokenOptions = {
 };
 
 export const findAttachmentsByToken = async ({ envelopeId, token }: FindAttachmentsByTokenOptions) => {
+  await assertAccessCodeVerifiedForToken(token);
+
   const envelope = await prisma.envelope.findFirst({
     where: {
       id: envelopeId,
