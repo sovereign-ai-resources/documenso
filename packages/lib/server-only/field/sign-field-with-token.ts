@@ -27,6 +27,7 @@ import type { RequestMetadata } from '../../universal/extract-request-metadata';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import { getRecipientFieldsWhereInput } from '../../utils/recipient-queries';
 import { assertRecipientNotExpired } from '../../utils/recipients';
+import { assertAccessCodeVerified } from '../access-code/assert-access-code';
 import { validateFieldAuth } from '../document/validate-field-auth';
 import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 
@@ -64,6 +65,8 @@ export const signFieldWithToken = async ({
       token,
     },
   });
+
+  assertAccessCodeVerified(recipient);
 
   const field = await prisma.field.findFirstOrThrow({
     where: {

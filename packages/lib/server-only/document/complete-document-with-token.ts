@@ -28,6 +28,7 @@ import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
 import { getRecipientsInActiveSigningStep, isRecipientTurnBySigningOrder } from '../../utils/recipient-groups';
 import { assertRecipientNotExpired, isRecipientBefore } from '../../utils/recipients';
+import { assertAccessCodeVerified } from '../access-code/assert-access-code';
 import { getIsRecipientsTurnToSign } from '../recipient/get-is-recipient-turn';
 import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
@@ -103,6 +104,8 @@ export const completeDocumentWithToken = async ({
   }
 
   const [recipient] = envelope.recipients;
+
+  assertAccessCodeVerified(recipient);
 
   // A retried or duplicate completion request for an already signed
   // recipient throws a code the router resolves idempotently. This must be

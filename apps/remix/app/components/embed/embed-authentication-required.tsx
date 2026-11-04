@@ -3,13 +3,20 @@ import { Trans } from '@lingui/react/macro';
 
 import { EmbedPopupAuth } from '~/components/embed/embed-popup-auth';
 import { BrandingLogo } from '~/components/general/branding-logo';
+import { AccessCodeGate } from '~/components/general/document-signing/access-code-gate';
 
 export type EmbedAuthenticationRequiredProps = {
   email?: string;
 };
 
 // Rendered from an ErrorBoundary, so providers come from public env rather than loader data.
-export const EmbedAuthenticationRequired = ({ email }: EmbedAuthenticationRequiredProps) => {
+export const EmbedAuthenticationRequired = (props: EmbedAuthenticationRequiredProps) => (
+  <AccessCodeGate>
+    <EmbedAccountAuthenticationRequired {...props} />
+  </AccessCodeGate>
+);
+
+const EmbedAccountAuthenticationRequired = ({ email }: EmbedAuthenticationRequiredProps) => {
   return (
     <div className="flex min-h-[100dvh] w-full items-center justify-center">
       <div className="flex w-full max-w-md flex-col">

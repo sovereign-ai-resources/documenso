@@ -1,4 +1,5 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerifiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
 import { viewedDocument } from '@documenso/lib/server-only/document/viewed-document';
 import { getCompletedFieldsForToken } from '@documenso/lib/server-only/field/get-completed-fields-for-token';
@@ -17,6 +18,8 @@ export const getMultiSignDocumentRoute = procedure
   .query(async ({ input, ctx: { metadata } }) => {
     try {
       const { token } = input;
+
+      await assertAccessCodeVerifiedForToken(token);
 
       const [document, fields, recipient] = await Promise.all([
         getDocumentAndSenderByToken({

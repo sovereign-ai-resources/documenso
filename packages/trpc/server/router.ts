@@ -1,3 +1,4 @@
+import { accessCodeRouter } from './access-code-router/router';
 import { adminRouter } from './admin-router/router';
 import { apiTokenRouter } from './api-token-router/router';
 import { authRouter } from './auth-router/router';
@@ -31,6 +32,7 @@ export const appRouter = router({
   template: templateRouter,
   webhook: webhookRouter,
   embeddingPresign: embeddingPresignRouter,
+  accessCode: accessCodeRouter,
 });
 
 export type AppRouter = typeof appRouter;

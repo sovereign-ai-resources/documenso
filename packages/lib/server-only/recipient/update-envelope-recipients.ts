@@ -12,6 +12,7 @@ import { extractLegacyIds } from '../../universal/id';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientBeModified } from '../../utils/recipients';
+import { withAccessCode } from '../access-code/access-code';
 import { assertEnvelopeMutable } from '../envelope/assert-envelope-mutable';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import { assertCompatibleRecipientGrouping } from '../signature-level/assert-compatible-recipient-grouping';
@@ -171,7 +172,7 @@ export const updateEnvelopeRecipients = async ({
             envelopeId: envelope.id,
             sendStatus: mergedRecipient.role === RecipientRole.CC ? SendStatus.SENT : SendStatus.NOT_SENT,
             signingStatus: mergedRecipient.role === RecipientRole.CC ? SigningStatus.SIGNED : SigningStatus.NOT_SIGNED,
-            authOptions,
+            authOptions: withAccessCode(authOptions, originalRecipient.authOptions),
           },
           include: {
             fields: true,

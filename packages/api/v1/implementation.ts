@@ -7,6 +7,7 @@ import { match } from 'ts-pattern';
 import '@documenso/lib/constants/time-zones';
 import { DEFAULT_DOCUMENT_TIME_ZONE, TIME_ZONES } from '@documenso/lib/constants/time-zones';
 import { AppError } from '@documenso/lib/errors/app-error';
+import { withoutStoredAccessCode } from '@documenso/lib/server-only/access-code/access-code';
 import { deleteDocument } from '@documenso/lib/server-only/document/delete-document';
 import { findDocuments } from '@documenso/lib/server-only/document/find-documents';
 import { resendDocument } from '@documenso/lib/server-only/document/resend-document';
@@ -1028,7 +1029,7 @@ export const ApiContractV1Implementation = tsr.router(ApiContractV1, {
           updatedAt: sentDocument.updatedAt,
           completedAt: sentDocument.completedAt,
           recipients: recipients.map((recipient) => ({
-            ...recipient,
+            ...withoutStoredAccessCode(recipient),
             signingUrl: `${NEXT_PUBLIC_WEBAPP_URL()}/sign/${recipient.token}`,
           })),
         },

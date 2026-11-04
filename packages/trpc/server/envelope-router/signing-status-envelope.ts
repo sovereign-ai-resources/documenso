@@ -1,4 +1,5 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerifiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { prisma } from '@documenso/prisma';
 import { DocumentStatus, EnvelopeType, RecipientRole, SigningStatus } from '@prisma/client';
 
@@ -20,6 +21,8 @@ export const signingStatusEnvelopeRoute = maybeAuthenticatedProcedure
         token,
       },
     });
+
+    await assertAccessCodeVerifiedForToken(token);
 
     const envelope = await prisma.envelope.findFirst({
       where: {

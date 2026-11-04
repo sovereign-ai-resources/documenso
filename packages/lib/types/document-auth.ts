@@ -5,7 +5,14 @@ import { ZAuthenticationResponseJSONSchema } from './webauthn';
 /**
  * All the available types of document authentication options for both access and action.
  */
-export const ZDocumentAuthTypesSchema = z.enum(['ACCOUNT', 'PASSKEY', 'TWO_FACTOR_AUTH', 'PASSWORD', 'EXPLICIT_NONE']);
+export const ZDocumentAuthTypesSchema = z.enum([
+  'ACCOUNT',
+  'PASSKEY',
+  'TWO_FACTOR_AUTH',
+  'PASSWORD',
+  'EXPLICIT_NONE',
+  'ACCESS_CODE',
+]);
 
 export const DocumentAuth = ZDocumentAuthTypesSchema.Enum;
 
@@ -85,7 +92,7 @@ export const ZRecipientAccessAuthSchema = z.discriminatedUnion('type', [
   ZDocumentAuth2FASchema,
 ]);
 export const ZRecipientAccessAuthTypesSchema = z
-  .enum([DocumentAuth.ACCOUNT, DocumentAuth.TWO_FACTOR_AUTH])
+  .enum([DocumentAuth.ACCOUNT, DocumentAuth.TWO_FACTOR_AUTH, DocumentAuth.ACCESS_CODE])
   .describe('The type of authentication required for the recipient to access the document.');
 
 /**

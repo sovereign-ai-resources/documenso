@@ -7,6 +7,7 @@ import type {
   TRecipientAuthOptions,
 } from '../types/document-auth';
 import { DocumentAuth, ZDocumentAuthOptionsSchema, ZRecipientAuthOptionsSchema } from '../types/document-auth';
+import { deriveRecipientAccessAuthWithAccessCode } from './document-auth-access-code';
 
 type ExtractDocumentAuthMethodsOptions = {
   documentAuth: Envelope['authOptions'];
@@ -23,8 +24,10 @@ export const extractDocumentAuthMethods = ({ documentAuth, recipientAuth }: Extr
   const documentAuthOption = ZDocumentAuthOptionsSchema.parse(documentAuth);
   const recipientAuthOption = ZRecipientAuthOptionsSchema.parse(recipientAuth);
 
-  const derivedRecipientAccessAuth: TRecipientAccessAuthTypes[] =
-    recipientAuthOption.accessAuth.length > 0 ? recipientAuthOption.accessAuth : documentAuthOption.globalAccessAuth;
+  const derivedRecipientAccessAuth: TRecipientAccessAuthTypes[] = deriveRecipientAccessAuthWithAccessCode(
+    recipientAuthOption.accessAuth,
+    documentAuthOption.globalAccessAuth,
+  );
 
   const derivedRecipientActionAuth: TRecipientActionAuthTypes[] =
     recipientAuthOption.actionAuth.length > 0 ? recipientAuthOption.actionAuth : documentAuthOption.globalActionAuth;

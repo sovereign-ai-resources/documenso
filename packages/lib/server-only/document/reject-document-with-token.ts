@@ -17,6 +17,7 @@ import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
 import { assertRecipientNotExpired } from '../../utils/recipients';
+import { assertAccessCodeVerified } from '../access-code/assert-access-code';
 import { assertSenderNotDisabled } from '../user/assert-user-not-disabled';
 
 export type RejectDocumentWithTokenOptions = {
@@ -47,6 +48,8 @@ export async function rejectDocumentWithToken({ token, id, reason, requestMetada
   }
 
   await assertSenderNotDisabled({ userId: envelope.userId });
+
+  assertAccessCodeVerified(recipient);
 
   if (envelope.status !== DocumentStatus.PENDING) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {

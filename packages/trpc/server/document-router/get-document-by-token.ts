@@ -1,4 +1,5 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerifiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { prisma } from '@documenso/prisma';
 import { EnvelopeType } from '@prisma/client';
 
@@ -10,6 +11,8 @@ export const getDocumentByTokenRoute = authenticatedProcedure
   .output(ZGetDocumentByTokenResponseSchema)
   .query(async ({ input, ctx }) => {
     const { token } = input;
+
+    await assertAccessCodeVerifiedForToken(token);
 
     const envelope = await prisma.envelope.findFirst({
       where: {

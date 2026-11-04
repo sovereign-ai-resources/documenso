@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { z } from 'zod';
 
+import { stripAccessCode } from '../server-only/access-code/access-code';
 import { mapSecondaryIdToDocumentId, mapSecondaryIdToTemplateId } from '../utils/envelope';
 
 /**
@@ -129,7 +130,7 @@ export const mapEnvelopeToWebhookDocumentPayload = (
     expiresAt: recipient.expiresAt,
     expirationNotifiedAt: recipient.expirationNotifiedAt,
     signedAt: recipient.signedAt,
-    authOptions: recipient.authOptions,
+    authOptions: stripAccessCode(recipient.authOptions),
     signingOrder: recipient.signingOrder,
     rejectionReason: recipient.rejectionReason,
     role: recipient.role,

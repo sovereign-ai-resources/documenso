@@ -42,6 +42,7 @@ import { assertEnvelopeContentLimits, getContentsMissingImages } from '../../uti
 import { toCheckboxCustomText, toRadioCustomText } from '../../utils/fields';
 import { getRecipientsInActiveSigningStep } from '../../utils/recipient-groups';
 import { getRecipientsWithMissingFields, isRecipientEmailValidForSending } from '../../utils/recipients';
+import { assertAccessCodesIssued } from '../access-code/assert-access-code';
 import { loadContentImages } from '../data-content/load-content-images';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
 import {
@@ -146,6 +147,8 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
   if (isDocumentCompleted(envelope.status)) {
     throw new Error('Can not send completed document');
   }
+
+  assertAccessCodesIssued(envelope.recipients);
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
 

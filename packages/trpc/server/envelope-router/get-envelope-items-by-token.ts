@@ -1,4 +1,5 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { assertAccessCodeVerifiedForToken } from '@documenso/lib/server-only/access-code/assert-access-code';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
 import { getOrganisationTemplateWhereInput } from '@documenso/lib/server-only/template/get-organisation-template-by-id';
 import { prisma } from '@documenso/prisma';
@@ -56,6 +57,8 @@ export const getEnvelopeItemsByTokenRoute = maybeAuthenticatedProcedure
   });
 
 const handleGetEnvelopeItemsByToken = async ({ envelopeId, token }: { envelopeId: string; token: string }) => {
+  await assertAccessCodeVerifiedForToken(token);
+
   const envelope = await prisma.envelope.findFirst({
     where: {
       id: envelopeId,

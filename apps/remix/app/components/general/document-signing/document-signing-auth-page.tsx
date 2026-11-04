@@ -10,13 +10,20 @@ import { Trans } from '@lingui/react/macro';
 import { useState } from 'react';
 
 import { EmbedPopupAuth } from '~/components/embed/embed-popup-auth';
+import { AccessCodeGate } from './access-code-gate';
 
 export type DocumentSigningAuthPageViewProps = {
   email?: string;
   emailHasAccount?: boolean;
 };
 
-export const DocumentSigningAuthPageView = ({ email, emailHasAccount }: DocumentSigningAuthPageViewProps) => {
+export const DocumentSigningAuthPageView = (props: DocumentSigningAuthPageViewProps) => (
+  <AccessCodeGate>
+    <AccountAuthPageView {...props} />
+  </AccessCodeGate>
+);
+
+const AccountAuthPageView = ({ email, emailHasAccount }: DocumentSigningAuthPageViewProps) => {
   const { _ } = useLingui();
   const { toast } = useToast();
 

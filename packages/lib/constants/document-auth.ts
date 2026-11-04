@@ -26,6 +26,10 @@ export const DOCUMENT_AUTH_TYPES: Record<string, DocumentAuthTypeData> = {
     key: DocumentAuth.PASSWORD,
     value: msg`Require password`,
   },
+  [DocumentAuth.ACCESS_CODE]: {
+    key: DocumentAuth.ACCESS_CODE,
+    value: msg`Require access code`,
+  },
   [DocumentAuth.EXPLICIT_NONE]: {
     key: DocumentAuth.EXPLICIT_NONE,
     value: msg`None (Overrides global settings)`,
