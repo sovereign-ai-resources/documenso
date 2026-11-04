@@ -11,26 +11,44 @@ or site identifiers) lives in private systems and never enters this repo.
 scripts/soar/install-hooks.sh
 ```
 
-Run it once per clone and once per extra worktree, and again whenever
-`scripts/soar/` changes. It needs [gitleaks](https://github.com/gitleaks/gitleaks/releases)
+Run it once per clone and once per extra worktree, again after every
+`npm install`, and again whenever `scripts/soar/` changes. It needs [gitleaks](https://github.com/gitleaks/gitleaks/releases)
 on `PATH`; without it the hook refuses every push.
 
-The hook runs gitleaks and the denylist on exactly the commits being pushed and
-refuses the push on any finding. CI runs the same checks, but CI only sees a
-leak after it is already public, so the hook is the real gate. Agents working
-in this repo install it before their first push too. Never push with
-`--no-verify`.
+The hook runs gitleaks and the denylist on exactly the commits being pushed,
+and the denylist on the names of the refs being pushed and on annotated tag
+messages, and refuses the push on any finding. gitleaks uses the
+`.gitleaks.toml` committed in what is being pushed, not your working copy. CI
+runs the commit checks too, but CI only sees a leak after it is already public,
+so the hook is the real gate. Agents working in this repo install it before
+their first push too.
+
+Never bypass the hook. Each of these skips it and publishes unscanned commits:
+
+- `git push --no-verify`
+- `HUSKY=0` in the environment, or a `~/.config/husky/init.sh` that sets it or
+  exits, once `npm install` has pointed `core.hooksPath` back at husky (see
+  below). The installer warns when it sees either.
 
 How it coexists with husky: `npm install` runs husky, which sets
 `core.hooksPath=.husky/_` and regenerates that directory each time. Husky's
-stubs run `.husky/<hook>` when it exists. The installer therefore writes:
+stubs run `.husky/<hook>` when it exists, but skip every hook when `HUSKY=0`.
+The installer therefore writes:
 
 - `<git common dir>/soar-hooks/`: a copy of the guard scripts and denylist, so
   the hook works whichever branch is checked out
-- `<git common dir>/hooks/pre-push`: used while `core.hooksPath` is unset
-  (before `npm install`)
-- `.husky/pre-push`: used once husky owns `core.hooksPath`; listed in
-  `.git/info/exclude`, so it never shows up in `git status`
+- `<git common dir>/soar-hooks/hooks/`: set as `core.hooksPath`. Its `pre-push`
+  runs the guard directly, so `HUSKY=0` cannot skip it; every other hook hands
+  off to husky's stub in `.husky/_` (or to `<git common dir>/hooks/` before
+  `npm install` has created it), so the upstream lint hooks still run
+- `<git common dir>/hooks/pre-push`: used if `core.hooksPath` is unset
+- `.husky/pre-push`: used after `npm install` has reset `core.hooksPath` to
+  `.husky/_` and before you re-run the installer (`HUSKY=0` skips this one);
+  listed in `.git/info/exclude`, so it never shows up in `git status`
+
+Every `npm install` resets `core.hooksPath` to `.husky/_`, so re-run the
+installer after it. The package.json `prepare` script is upstream's and stays
+untouched, which is why this is not automatic.
 
 If `core.hooksPath` points anywhere else, the installer stops and tells you
 what to add by hand.
@@ -95,14 +113,15 @@ push to `soar`, comparing against `soar-base`:
 | Job | Script | Fails when |
 |---|---|---|
 | packages/ee untouched | `scripts/soar/check-ee-untouched.sh` | anything under `packages/ee` differs from `soar-base` |
-| Enterprise flags off | `scripts/soar/check-enterprise-flags.sh` | an added line sets one of the flags above to true |
-| Denylist | `scripts/soar/check-denylist.sh` | an added line, new file path, commit message, or author/committer identity contains a denylisted value |
+| Enterprise flags off | `scripts/soar/check-enterprise-flags.sh` | an added line sets one of the flags above to anything but a literal `false` (aliases and env-derived values included), or compares one with `true`. Prisma `include`/`select` objects and lines marked `// soar-allow-flag: <why>` are exempt |
+| Denylist | `scripts/soar/check-denylist.sh` | an added line, the path of an added or modified file (binary and empty files included), a commit message, or an author/committer identity contains a denylisted value |
 | gitleaks | pinned, checksum-verified gitleaks release with `.gitleaks.toml` | gitleaks reports a possible secret in the fork's commits |
 | Divergence report | `scripts/soar/divergence-report.sh` | never; it lists the upstream files the stack modifies, for review |
 
 `scripts/soar/denylist.txt` holds only SHA-256 hashes, so this repo does not
-spell out what it guards. Every script takes the base from `SOAR_BASE`
-(default `soar-base`). `scripts/soar/test-guardrails.sh` exercises every check
+spell out what it guards. The `check-*` scripts and `divergence-report.sh`
+compare against `SOAR_BASE` (default `soar-base`); the pre-push hook ignores it
+and scans the range being pushed. `scripts/soar/test-guardrails.sh` exercises every check
 against throwaway repositories.
 
 The upstream checks also apply: `npm run lint`, `npm run build`, and the
