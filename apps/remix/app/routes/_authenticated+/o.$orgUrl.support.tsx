@@ -1,6 +1,7 @@
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
+import { IS_BRANDED } from '@documenso/lib/constants/brand';
 import { Button } from '@documenso/ui/primitives/button';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
@@ -9,6 +10,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { SupportTicketForm } from '~/components/forms/support-ticket-form';
+import { BrandedSupport } from '~/components/general/branded-support';
 import { appMetaTags } from '~/utils/meta';
 
 export function meta() {
@@ -33,6 +35,10 @@ export default function SupportPage() {
   const handleCloseForm = () => {
     setShowForm(false);
   };
+
+  if (IS_BRANDED()) {
+    return <BrandedSupport />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-screen-xl px-4 md:px-8">

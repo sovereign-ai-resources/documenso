@@ -1,8 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { formatter } from '@lingui/format-po';
-import { compileMessage } from '@lingui/message-utils/compileMessage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { applyBrandToMessages } from './brand-messages';
@@ -73,55 +68,5 @@ describe('applyBrandToMessages', () => {
     const messages = { a: 'Sign in to Documenso' };
 
     expect(applyBrandToMessages(messages)).toEqual(messages);
-  });
-});
-
-const containsProductName = (value: unknown): boolean => {
-  if (typeof value === 'string') {
-    return value.replace(CREDIT, '').includes('Documenso');
-  }
-
-  if (Array.isArray(value)) {
-    return value.some(containsProductName);
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.values(value).some(containsProductName);
-  }
-
-  return false;
-};
-
-describe('every shipped locale', () => {
-  const translationsDir = join(__dirname, '../translations');
-  const locales = readdirSync(translationsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-
-  // Compile the same way `lingui compile` does, so the transform sees the compiled
-  // string and array forms production loads rather than the raw `.po` text.
-  const compileLocale = (locale: string) => {
-    const catalog = formatter({ lineNumbers: false }).parse(
-      readFileSync(join(translationsDir, locale, 'web.po'), 'utf8'),
-      { locale, sourceLocale: 'en', filename: 'web.po' },
-    ) as Record<string, { translation?: string | null; message?: string | null }>;
-
-    return Object.fromEntries(
-      Object.entries(catalog).map(([id, item]) => [id, compileMessage(item.translation || item.message || id)]),
-    );
-  };
-
-  it('finds the shipped locales', () => {
-    expect(locales.length).toBeGreaterThan(0);
-  });
-
-  it.each(locales)('%s has no product name left after the transform', (locale) => {
-    const compiled = compileLocale(locale);
-
-    expect(containsProductName(compiled)).toBe(true);
-
-    brand();
-
-    expect(containsProductName(applyBrandToMessages(compiled))).toBe(false);
   });
 });

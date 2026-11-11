@@ -12,7 +12,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-const PACK_DETAILS = 'Example Co, Inc.\n1 Example Street';
+const PACK_DETAILS = '1 Example Street';
+// The step stores the legal name ahead of the details, which the email footer shows once branding is on.
+const STORED_DETAILS = 'Example Co, Inc.\n1 Example Street';
 const PACK_URL = 'https://brand.example';
 
 const withEnv = async <T>(values: Record<string, string | undefined>, fn: () => Promise<T>) => {
@@ -83,7 +85,7 @@ test('[BRAND_ORGANISATION]: an organisation at defaults gets the pack logo, webs
 
   expect(settings.brandingEnabled).toBe(true);
   expect(settings.brandingUrl).toBe(PACK_URL);
-  expect(settings.brandingCompanyDetails).toBe(PACK_DETAILS);
+  expect(settings.brandingCompanyDetails).toBe(STORED_DETAILS);
   expect(JSON.parse(settings.brandingLogo)).toMatchObject({ type: 'BYTES_64' });
 });
 
@@ -135,7 +137,7 @@ test('[BRAND_ORGANISATION]: the reapply flag replaces an admin edit with the pac
 
   await run({ organisationId, reapply: true });
 
-  expect((await getSettings(settingsId)).brandingCompanyDetails).toBe(PACK_DETAILS);
+  expect((await getSettings(settingsId)).brandingCompanyDetails).toBe(STORED_DETAILS);
 });
 
 test('[BRAND_ORGANISATION]: no organisation id means no writes', async () => {

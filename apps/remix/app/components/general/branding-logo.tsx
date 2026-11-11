@@ -1,22 +1,14 @@
-import { getBasePath } from '@documenso/lib/constants/app';
-import { BRAND_ASSET_PATHS, BRAND_NAME, IS_BRANDED } from '@documenso/lib/constants/brand';
-import { cn } from '@documenso/ui/lib/utils';
+import { BRAND_ASSET_PATHS, IS_BRANDED } from '@documenso/lib/constants/brand';
 import type { SVGAttributes } from 'react';
 
-export type LogoProps = SVGAttributes<SVGSVGElement>;
+import { BrandingImages } from './branding-images';
 
-// The pack's images carry their own colors, so `fill`/`currentColor` from the caller does not apply.
-const BrandedImages = ({ className, light, dark }: { className?: string; light: string; dark: string }) => (
-  <>
-    <img src={`${getBasePath()}${light}`} alt={BRAND_NAME()} className={cn('dark:hidden', className)} />
-    <img src={`${getBasePath()}${dark}`} alt={BRAND_NAME()} className={cn('hidden dark:block', className)} />
-  </>
-);
+export type LogoProps = SVGAttributes<SVGSVGElement>;
 
 export const BrandingLogo = ({ ...props }: LogoProps) => {
   if (IS_BRANDED()) {
     return (
-      <BrandedImages
+      <BrandingImages
         className={props.className}
         light={BRAND_ASSET_PATHS.logoLight}
         dark={BRAND_ASSET_PATHS.logoDark}

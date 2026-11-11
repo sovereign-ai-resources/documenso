@@ -1,4 +1,4 @@
-import { BRAND_COMPANY_DETAILS, BRAND_LEGAL_NAME, IS_BRANDED } from '@documenso/lib/constants/brand';
+import { BRAND_FOOTER_TEXT, IS_BRANDED } from '@documenso/lib/constants/brand';
 import { Trans } from '@lingui/react/macro';
 import { Fragment } from 'react';
 
@@ -65,12 +65,11 @@ export const TemplateFooter = ({ isDocument = true, reportUrl }: TemplateFooterP
 
       {!branding.brandingEnabled && IS_BRANDED() && (
         <Text className="my-8 text-muted-foreground text-sm">
-          {BRAND_LEGAL_NAME()}
-          {BRAND_COMPANY_DETAILS()
-            ?.split('\n')
+          {BRAND_FOOTER_TEXT()
+            .split('\n')
             .map((line, idx) => (
               <Fragment key={idx}>
-                <br />
+                {idx > 0 && <br />}
                 {line}
               </Fragment>
             ))}

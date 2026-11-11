@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { shouldApplyBrand } from './apply-brand-to-organisation';
+import { getBrandOrganisationSettings, shouldApplyBrand } from './apply-brand-to-organisation';
 
 const defaults = { brandingEnabled: false, brandingLogo: '', brandingUrl: '', brandingCompanyDetails: '' };
 
@@ -30,5 +30,24 @@ describe('shouldApplyBrand', () => {
         reapply: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe('getBrandOrganisationSettings', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // Enabling branding switches the email footer to these company details, so
+  // they must carry the legal name even when the pack has no details of its own.
+  it('stores the legal name as company details when the pack has none', () => {
+    vi.stubEnv('NEXT_PUBLIC_BRAND', JSON.stringify({ name: 'Example Co', legalName: 'Example Co, Inc.' }));
+    vi.stubEnv('NEXT_PUBLIC_BRAND_WEBSITE_URL', 'https://example.com');
+
+    expect(getBrandOrganisationSettings()).toEqual({
+      brandingEnabled: true,
+      brandingUrl: 'https://example.com',
+      brandingCompanyDetails: 'Example Co, Inc.',
+    });
   });
 });

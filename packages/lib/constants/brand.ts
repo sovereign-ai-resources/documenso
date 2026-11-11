@@ -53,6 +53,14 @@ export const BRAND_LEGAL_NAME = () => BRAND()?.legalName ?? UPSTREAM_LEGAL_NAME;
 export const BRAND_COMPANY_DETAILS = () => BRAND()?.companyDetails;
 
 /**
+ * The company block a branded email footer shows: the legal name, then any
+ * company details. The organisation step stores the same text, so the footer
+ * reads the same before and after it runs.
+ */
+export const BRAND_FOOTER_TEXT = () =>
+  [BRAND_LEGAL_NAME(), BRAND_COMPANY_DETAILS()].filter((part): part is string => Boolean(part)).join('\n');
+
+/**
  * The brand's public website, from `NEXT_PUBLIC_BRAND_WEBSITE_URL`.
  */
 export const BRAND_WEBSITE_URL = () => env('NEXT_PUBLIC_BRAND_WEBSITE_URL')?.trim() || undefined;
