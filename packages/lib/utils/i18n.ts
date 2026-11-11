@@ -4,6 +4,7 @@ import type { MacroMessageDescriptor } from '@lingui/core/macro';
 
 import type { I18nLocaleData, SupportedLanguageCodes } from '../constants/i18n';
 import { APP_I18N_OPTIONS } from '../constants/i18n';
+import { applyBrandToMessages } from './brand-messages';
 import { env } from './env';
 
 export async function getTranslations(locale: string) {
@@ -11,7 +12,7 @@ export async function getTranslations(locale: string) {
 
   const { messages } = await import(`../translations/${locale}/web.${extension}`);
 
-  return messages;
+  return applyBrandToMessages(messages);
 }
 
 export async function dynamicActivate(locale: string) {

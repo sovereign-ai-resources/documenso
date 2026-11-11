@@ -85,6 +85,22 @@ RUN npm ci
 
 # Then copy all the source code (as it changes more often)
 COPY --from=builder /app/out/full/ .
+
+# Optional brand pack (brand/<name>/). turbo prune leaves out root folders, so
+# the packs are copied in explicitly, then the selected one is laid over the
+# app's public files and the bundled assets before the build reads them.
+# A branded image must say which commit it was built from: the app links that
+# exact source on every page and refuses to start without it.
+ARG BRAND=""
+ARG SOURCE_COMMIT=""
+COPY --from=builder /app/brand ./brand
+RUN if [ -n "$BRAND" ]; then \
+      test -d "brand/$BRAND" || { echo "Unknown brand pack: $BRAND" >&2; exit 1; }; \
+      test -n "$SOURCE_COMMIT" || { echo "A branded build needs the SOURCE_COMMIT build argument" >&2; exit 1; }; \
+      cp -R "brand/$BRAND/public/." apps/remix/public/ \
+      && cp -R "brand/$BRAND/assets/." packages/assets/; \
+    fi
+
 # Finally copy the turbo.json file so that we can run turbo commands
 COPY turbo.json turbo.json
 
@@ -106,6 +122,10 @@ ENV NEXT_PRIVATE_TELEMETRY_KEY="$NEXT_PRIVATE_TELEMETRY_KEY"
 
 ARG NEXT_PRIVATE_TELEMETRY_HOST=""
 ENV NEXT_PRIVATE_TELEMETRY_HOST="$NEXT_PRIVATE_TELEMETRY_HOST"
+
+# The commit this image was built from, linked from every page as its source.
+ARG SOURCE_COMMIT=""
+ENV NEXT_PUBLIC_SOURCE_COMMIT="$SOURCE_COMMIT"
 
 # Don't run production as root
 RUN addgroup --system --gid 1001 nodejs

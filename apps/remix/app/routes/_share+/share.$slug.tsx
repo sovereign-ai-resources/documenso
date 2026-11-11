@@ -1,4 +1,5 @@
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
+import { BRAND_NAME, IS_BRANDED } from '@documenso/lib/constants/brand';
 import { getDocumentByAccessToken } from '@documenso/lib/server-only/document/get-document-by-access-token';
 import { redirect, useLoaderData } from 'react-router';
 
@@ -9,6 +10,18 @@ import type { Route } from './+types/share.$slug';
 export function meta({ params: { slug } }: Route.MetaArgs) {
   if (slug.startsWith('qr_')) {
     return undefined;
+  }
+
+  if (IS_BRANDED()) {
+    const brandName = BRAND_NAME();
+
+    return [
+      { title: brandName },
+      { name: 'description', content: `Sign and manage documents securely with ${brandName}.` },
+      { property: 'og:title', content: brandName },
+      { property: 'og:description', content: `Sign and manage documents securely with ${brandName}.` },
+      { property: 'og:type', content: 'website' },
+    ];
   }
 
   return [
@@ -67,6 +80,10 @@ export const loader = async ({ request, params: { slug } }: Route.LoaderArgs) =>
 
   if (/bot|facebookexternalhit|WhatsApp|google|bing|duckduckbot|MetaInspector/i.test(userAgent)) {
     return {};
+  }
+
+  if (IS_BRANDED()) {
+    throw redirect('/');
   }
 
   // Is hardcoded because this whole meta is hardcoded anyway for Documenso.

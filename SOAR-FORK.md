@@ -159,6 +159,22 @@ These are set by a repository admin; nothing in this repo can set them.
   a tag ruleset that only the App bypasses, so only it can create, move or
   delete them.
 
+## Brand packs and the modified-version notice
+
+- **Brand packs live under `brand/` and are public on purpose.** Assets baked
+  into the image (logos, icons, stylesheet, pack definition) are part of the
+  Corresponding Source the deployment offers under AGPL-3.0, so they must be
+  in this repository. Put nothing in a pack you would not publish.
+- **Domains and deployment identifiers stay in private env.** Site and tenant
+  identifiers, hostnames, the organisation id and similar values are supplied
+  to the running deployment, never written into a pack or any file here.
+- **Modified-version notice (2026-11-11).** `NOTICE` records that this is a
+  modified version of Documenso under AGPL-3.0, with upstream copyright kept
+  in `LICENSE`. A branded build refuses to start without a source offer
+  (`NEXT_PUBLIC_SOURCE_REPOSITORY_URL` and `NEXT_PUBLIC_SOURCE_COMMIT`), unless
+  `NEXT_PRIVATE_ALLOW_MISSING_SOURCE_OFFER=true` is set for local use. Change
+  `NOTICE` and this section whenever the fork's modifications change in kind.
+
 ## Rules that keep the replay cheap
 
 1. **No Prisma schema migrations.** New per-recipient data goes in the existing

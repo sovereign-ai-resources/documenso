@@ -1,0 +1,11 @@
+{
+  "name": "SOAR AI",
+  "legalName": "SOAR AI, Inc.",
+  "emailColors": {
+    "primary": "#212732",
+    "primaryForeground": "#ffffff",
+    "ring": "#768fb5",
+    "fieldCard": "#e6eefb",
+    "fieldCardBorder": "#9bbced"
+  }
+}

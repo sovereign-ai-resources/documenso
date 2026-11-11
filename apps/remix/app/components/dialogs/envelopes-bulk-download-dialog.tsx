@@ -5,6 +5,7 @@ import {
 } from '@documenso/lib/client-only/create-zip-writer';
 import { downloadFile } from '@documenso/lib/client-only/download-file';
 import { fetchPDF } from '@documenso/lib/client-only/download-pdf';
+import { BRAND_NAME } from '@documenso/lib/constants/brand';
 import { trpc } from '@documenso/trpc/react';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
@@ -214,7 +215,9 @@ export const EnvelopesBulkDownloadDialog = ({
 
       try {
         downloadFile({
-          filename: `documenso-documents-${new Date().toISOString().slice(0, 10)}.zip`,
+          filename: `${BRAND_NAME()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')}-documents-${new Date().toISOString().slice(0, 10)}.zip`,
           data: zipWriter.finalize(),
         });
       } catch (error) {

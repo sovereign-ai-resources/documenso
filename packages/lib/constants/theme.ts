@@ -1,4 +1,5 @@
 import type { TCssVarsSchema } from '../types/css-vars';
+import { BRAND } from './brand';
 
 /**
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -56,3 +57,13 @@ export const DEFAULT_BRAND_COLORS = {
 } as const satisfies Record<keyof Omit<TCssVarsSchema, 'radius' | 'cardBorderTint'>, string>;
 
 export const DEFAULT_BRAND_RADIUS = '0.5rem';
+
+/**
+ * The default colors for the current deployment: the upstream defaults, with a
+ * loaded brand pack's email colors laid over them. Computed per call (not at
+ * import) so it sees the pack the server loaded at startup.
+ */
+export const getDefaultBrandColors = (): Record<keyof typeof DEFAULT_BRAND_COLORS, string> => ({
+  ...DEFAULT_BRAND_COLORS,
+  ...BRAND()?.emailColors,
+});

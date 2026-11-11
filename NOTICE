@@ -1,0 +1,13 @@
+This is a modified version of Documenso (https://github.com/documenso/documenso).
+
+Documenso is licensed under the GNU Affero General Public License, version 3
+(AGPL-3.0). The license text is in LICENSE, and the upstream copyright notices
+it carries are retained unchanged.
+
+This version was modified by the maintainers of this fork. The modifications
+are also licensed under AGPL-3.0. A dated description of what the fork changes
+is in SOAR-FORK.md, and the full history is in this repository's commit log.
+
+Every deployment of this software offers its users the exact source it runs:
+a "Source code" link at the end of each page leads to this repository at the
+deployed commit.

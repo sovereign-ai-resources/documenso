@@ -1,5 +1,6 @@
 import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
+import { BRAND_NAME, IS_BRANDED } from '@documenso/lib/constants/brand';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { i18n } from '@lingui/core';
@@ -14,7 +15,9 @@ import type { Route } from './+types/_layout';
 
 export function meta() {
   return [
-    { title: i18n._(msg`Sign Document - Documenso`) },
+    {
+      title: IS_BRANDED() ? `${i18n._(msg`Sign Document`)} - ${BRAND_NAME()}` : i18n._(msg`Sign Document - Documenso`),
+    },
     { name: 'robots', content: 'noindex, nofollow, noarchive, nosnippet, noimageindex' },
   ];
 }

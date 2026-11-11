@@ -1,4 +1,4 @@
-import { DEFAULT_BRAND_COLORS } from '@documenso/lib/constants/theme';
+import { getDefaultBrandColors } from '@documenso/lib/constants/theme';
 import type { EmailBrandingColors } from '@documenso/lib/utils/email-branding-colors';
 import { resolveEmailBrandingColors } from '@documenso/lib/utils/email-branding-colors';
 import type { I18n } from '@lingui/core';
@@ -15,16 +15,19 @@ export type RenderOptions = ReactEmail.Options & {
 
 /**
  * The default email token set: the shadcn theme tokens, sourced as hex from
- * `DEFAULT_BRAND_COLORS` (which mirrors `theme.css`). Emails can't use CSS
+ * `DEFAULT_BRAND_COLORS` (which mirrors `theme.css`), with a brand pack's email colors laid over them, evaluated per render so the loaded pack is seen. Emails can't use CSS
  * variables, so these are concrete hex values baked into the Tailwind config.
  *
  * Resolved through the same `resolveEmailBrandingColors` pipeline as tenant
- * colours so the default values live in exactly one place (`DEFAULT_BRAND_COLORS`)
+ * colours so the default values live in one place (`getDefaultBrandColors`)
  * and the default + tenant paths can't drift. Used when a tenant has no
  * (entitled) brand colours.
  */
-const DEFAULT_EMAIL_BRANDING_COLORS: EmailBrandingColors =
-  resolveEmailBrandingColors(DEFAULT_BRAND_COLORS) ?? DEFAULT_BRAND_COLORS;
+const getDefaultEmailBrandingColors = (): EmailBrandingColors => {
+  const defaults = getDefaultBrandColors();
+
+  return resolveEmailBrandingColors(defaults) ?? defaults;
+};
 
 /**
  * Map the resolved colour set to flat semantic Tailwind tokens. Templates use
@@ -32,12 +35,12 @@ const DEFAULT_EMAIL_BRANDING_COLORS: EmailBrandingColors =
  * mirroring the app's shadcn tokens, instead of bespoke `slate-*`/`documenso-*`
  * scale classes.
  *
- * Always defined: falls back to `DEFAULT_EMAIL_BRANDING_COLORS` when no tenant
+ * Always defined: falls back to the default email colors when no tenant
  * colours are supplied, so the tokens resolve whether or not custom branding is
  * in play.
  */
 const buildEmailColors = (brandingColors?: EmailBrandingColors): Record<string, string> => {
-  const c = brandingColors ?? DEFAULT_EMAIL_BRANDING_COLORS;
+  const c = brandingColors ?? getDefaultEmailBrandingColors();
 
   return {
     background: c.background,
