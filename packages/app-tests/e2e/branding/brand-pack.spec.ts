@@ -1,4 +1,7 @@
+import { seedUser } from '@documenso/prisma/seed/users';
 import { expect, type Page, test } from '@playwright/test';
+
+import { apiSignin } from '../fixtures/authentication';
 
 // Runs only against a server started with a brand pack, like the paired skip in the access-code spec.
 const BRANDED = process.env.E2E_BRANDED === 'true';
@@ -57,21 +60,22 @@ const contrast = (a: [number, number, number, number], b: [number, number, numbe
 };
 
 test.describe('brand pack', () => {
-  test('sign-in title ends with the brand name and shows the brand logo', async ({ page }) => {
+  test('sign-in title ends with the brand name', async ({ page }) => {
     await page.goto('/signin');
 
     const brandName = await getBrandName(page);
 
     await expect(page).toHaveTitle(new RegExp(`${brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
-
-    await expect(page.locator(`img[alt="${brandName}"]`).first()).toBeAttached();
   });
 
-  test('dark mode shows the dark logo variant and light mode the light one', async ({ page }) => {
-    await page.goto('/signin');
+  // The app header carries the logo; the sign-in page has none upstream either.
+  test('the app header shows the light logo in light mode and the dark one in dark mode', async ({ page }) => {
+    const { user, team } = await seedUser();
+
+    await apiSignin({ page, email: user.email, redirectPath: `/t/${team.url}/documents` });
 
     const brandName = await getBrandName(page);
-    const logos = page.locator(`img[alt="${brandName}"]`);
+    const logos = page.locator(`header img[alt="${brandName}"]`);
 
     await setTheme(page, 'light');
     await expect(logos.filter({ visible: true }).first()).toHaveAttribute('src', /logo-light/);
