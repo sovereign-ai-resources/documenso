@@ -1,0 +1,52 @@
+/*
+ * SOAR AI palette: Dark #0C0E12, Steel #212732, Horizon #768FB5, Sky #9BBCED.
+ * Loaded after the app stylesheet and outside any cascade layer, so these
+ * values override the theme defaults. Sky is never used as text on white
+ * (about 1.9:1); text roles use Steel in light mode and Sky on Dark.
+ */
+
+:root,
+.dark-mode-disabled {
+  --brand-default: 33 39 50;
+  --brand-50: 245 248 253;
+  --brand-100: 230 238 251;
+  --brand-200: 205 222 246;
+  --brand-300: 180 205 241;
+  --brand-400: 155 188 237;
+  --brand-500: 118 143 181;
+  --brand-600: 85 106 140;
+  --brand-700: 52 64 84;
+  --brand-800: 33 39 50;
+  --brand-900: 22 26 33;
+  --brand-950: 12 14 18;
+
+  --primary: 218.8 20.5% 16.3%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 216.2 29.9% 58.6%;
+
+  --field-card: 217.1 72.4% 94.3%;
+  --field-card-border: 215.9 69.5% 76.9%;
+  --card-border-tint: 118 143 181;
+}
+
+.dark:not(.dark-mode-disabled) {
+  --brand-default: 155 188 237;
+  --brand-600: 180 205 241;
+  --brand-700: 155 188 237;
+
+  --background: 220 20% 5.9%;
+  --popover: 220 20% 5.9%;
+  --card: 220 20% 5.9%;
+  --widget: 220 20% 5.9%;
+  --envelope-editor-background: 220 20% 5.9%;
+  --muted: 218.8 20.5% 16.3%;
+  --accent: 218.8 20.5% 16.3%;
+  --secondary: 218.8 20.5% 16.3%;
+
+  --primary: 215.9 69.5% 76.9%;
+  --primary-foreground: 220 20% 5.9%;
+  --secondary-foreground: 215.9 69.5% 76.9%;
+  --accent-foreground: 215.9 69.5% 76.9%;
+  --ring: 216.2 29.9% 58.6%;
+  --card-border-tint: 118 143 181;
+}
