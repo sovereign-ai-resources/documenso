@@ -1,3 +1,4 @@
+import { BRAND_FOOTER_TEXT, IS_BRANDED } from '@documenso/lib/constants/brand';
 import { Trans } from '@lingui/react/macro';
 import { Fragment } from 'react';
 
@@ -29,7 +30,7 @@ export const TemplateFooter = ({ isDocument = true, reportUrl }: TemplateFooterP
         </Text>
       )}
 
-      {isDocument && !branding.brandingHidePoweredBy && (
+      {isDocument && !branding.brandingHidePoweredBy && !IS_BRANDED() && (
         <Text className="my-4 text-base text-muted-foreground">
           <Trans>
             This document was sent using{' '}
@@ -62,7 +63,20 @@ export const TemplateFooter = ({ isDocument = true, reportUrl }: TemplateFooterP
         </Text>
       )}
 
-      {!branding.brandingEnabled && (
+      {!branding.brandingEnabled && IS_BRANDED() && (
+        <Text className="my-8 text-muted-foreground text-sm">
+          {BRAND_FOOTER_TEXT()
+            .split('\n')
+            .map((line, idx) => (
+              <Fragment key={idx}>
+                {idx > 0 && <br />}
+                {line}
+              </Fragment>
+            ))}
+        </Text>
+      )}
+
+      {!branding.brandingEnabled && !IS_BRANDED() && (
         <Text className="my-8 text-muted-foreground text-sm">
           Documenso, Inc.
           <br />

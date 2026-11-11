@@ -2,6 +2,7 @@ import type { I18n, Messages } from '@lingui/core';
 import { setupI18n } from '@lingui/core';
 
 import { APP_I18N_OPTIONS, isValidLanguageCode, SUPPORTED_LANGUAGE_CODES } from '../../constants/i18n';
+import { applyBrandToMessages } from '../../utils/brand-messages';
 import { env } from '../../utils/env';
 import { remember } from '../../utils/remember';
 
@@ -15,7 +16,7 @@ export async function loadCatalog(lang: SupportedLanguages): Promise<{
   const { messages } = await import(`../../translations/${lang}/web.${extension}`);
 
   return {
-    [lang]: messages,
+    [lang]: applyBrandToMessages(messages),
   };
 }
 

@@ -1,8 +1,21 @@
+import { BRAND_ASSET_PATHS, IS_BRANDED } from '@documenso/lib/constants/brand';
 import type { SVGAttributes } from 'react';
+
+import { BrandingImages } from './branding-images';
 
 export type LogoProps = SVGAttributes<SVGSVGElement>;
 
 export const BrandingLogoIcon = ({ ...props }: LogoProps) => {
+  if (IS_BRANDED()) {
+    return (
+      <BrandingImages
+        className={props.className}
+        light={BRAND_ASSET_PATHS.iconLight}
+        dark={BRAND_ASSET_PATHS.iconDark}
+      />
+    );
+  }
+
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 84" {...props}>
       <g fill="currentColor">

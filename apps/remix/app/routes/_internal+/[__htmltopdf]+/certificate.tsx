@@ -5,6 +5,7 @@ import { unsafeGetEntireEnvelope } from '@documenso/lib/server-only/admin/get-en
 import { decryptSecondaryData } from '@documenso/lib/server-only/crypto/decrypt';
 import { getDocumentCertificateAuditLogs } from '@documenso/lib/server-only/document/get-document-certificate-audit-logs';
 import { getOrganisationClaimByTeamId } from '@documenso/lib/server-only/organisation/get-organisation-claims';
+import { shouldShowPoweredByBlock } from '@documenso/lib/server-only/pdf/brand-footer';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
@@ -85,7 +86,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       deletedAt: envelope.deletedAt,
       documentMeta: envelope.documentMeta,
     },
-    hidePoweredBy: organisationClaim.flags.hidePoweredBy,
+    hidePoweredBy: !shouldShowPoweredByBlock({ hidePoweredBy: organisationClaim.flags.hidePoweredBy }),
     documentLanguage,
     auditLogs,
     messages,

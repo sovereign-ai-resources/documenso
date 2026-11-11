@@ -5,6 +5,19 @@
 @layer base {
   :root,
   .dark-mode-disabled {
+    --brand-default: 162 231 113;
+    --brand-50: 255 255 255;
+    --brand-100: 253 255 253;
+    --brand-200: 231 249 218;
+    --brand-300: 208 243 183;
+    --brand-400: 185 237 148;
+    --brand-500: 162 231 113;
+    --brand-600: 131 223 65;
+    --brand-700: 102 198 34;
+    --brand-800: 77 150 25;
+    --brand-900: 53 102 17;
+    --brand-950: 40 78 13;
+
     --background: 0 0% 100%;
     --foreground: 222.2 47.4% 11.2%;
 

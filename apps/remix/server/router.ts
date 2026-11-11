@@ -2,7 +2,11 @@ import { tsRestHonoApp } from '@documenso/api/hono';
 import { auth } from '@documenso/auth/server';
 import { rejectEmbedSessionMiddleware } from '@documenso/auth/server/lib/session/embed-session-restrictions';
 import { csc } from '@documenso/ee/server-only/signing/csc/hono';
+import { SOURCE_OFFER } from '@documenso/lib/constants/source-offer';
 import { jobsClient } from '@documenso/lib/jobs/client';
+import { applyBrandToOrganisation } from '@documenso/lib/server-only/branding/apply-brand-to-organisation';
+import { loadBrandPack } from '@documenso/lib/server-only/branding/load-brand-pack';
+import { decideSourceOfferStartup } from '@documenso/lib/server-only/branding/source-offer-guard';
 import { LicenseClient } from '@documenso/lib/server-only/license/license-client';
 import { createRateLimitMiddleware } from '@documenso/lib/server-only/rate-limit/rate-limit-middleware';
 import {
@@ -47,6 +51,40 @@ export interface HonoEnv {
     logger: Logger;
     cspNonce: string;
   };
+}
+
+// Load the build's brand pack, if any, before anything renders: every brand
+// getter reads the value this publishes.
+const brandPack = loadBrandPack();
+
+if (brandPack) {
+  logger.info({ msg: `Brand pack loaded: ${brandPack.name}` });
+}
+
+// A branded build must offer its source to users (AGPL-3.0 section 13), so it
+// does not start without the repository URL and commit that make the offer.
+const sourceOfferDecision = decideSourceOfferStartup({
+  isBranded: brandPack !== null,
+  offer: SOURCE_OFFER(),
+  allowMissing: env('NEXT_PRIVATE_ALLOW_MISSING_SOURCE_OFFER') === 'true',
+  env: {
+    NEXT_PUBLIC_SOURCE_REPOSITORY_URL: env('NEXT_PUBLIC_SOURCE_REPOSITORY_URL'),
+    NEXT_PUBLIC_SOURCE_COMMIT: env('NEXT_PUBLIC_SOURCE_COMMIT'),
+  },
+});
+
+if (sourceOfferDecision.action === 'fail') {
+  logger.fatal({
+    msg: `A branded build must offer its source code; missing ${sourceOfferDecision.missing.join(', ')}. Set them, or set NEXT_PRIVATE_ALLOW_MISSING_SOURCE_OFFER=true for local use only. Refusing to start.`,
+  });
+
+  process.exit(1);
+}
+
+if (sourceOfferDecision.action === 'warn') {
+  logger.warn({
+    msg: `No source offer: missing ${sourceOfferDecision.missing.join(', ')}. Continuing because NEXT_PRIVATE_ALLOW_MISSING_SOURCE_OFFER=true.`,
+  });
 }
 
 const basePath = (env('NEXT_PUBLIC_BASE_PATH') ?? '').replace(/\/$/, '');
@@ -177,5 +215,6 @@ jobsClient.startCron();
 void migrateDeletedAccountServiceAccount();
 void migrateLegacyServiceAccount();
 void verifySingleOrganisationOnStartup();
+void applyBrandToOrganisation();
 
 export default app;

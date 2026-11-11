@@ -9,6 +9,7 @@ import { readCscServiceSessionFromRequest } from '@documenso/ee/server-only/sign
 import { EnvelopeRenderProvider } from '@documenso/lib/client-only/providers/envelope-render-provider';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { IS_INSTANCE_CSC_MODE } from '@documenso/lib/constants/app';
+import { IS_BRANDED } from '@documenso/lib/constants/brand';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { withoutStoredAccessCode, withoutStoredAccessCodes } from '@documenso/lib/server-only/access-code/access-code';
 import { isAccessCodeSatisfied } from '@documenso/lib/server-only/access-code/assert-access-code';
@@ -479,7 +480,7 @@ const SigningPageV1 = ({ data }: { data: Awaited<ReturnType<typeof handleV1Loade
             <Link to="/" className="mt-36 text-documenso-700 hover:text-documenso-600">
               <Trans>Go Back Home</Trans>
             </Link>
-          ) : (
+          ) : !IS_BRANDED() ? (
             <p className="mt-36 text-muted-foreground/60 text-sm">
               <Trans>
                 Want to send slick signing links like this one?{' '}
@@ -489,7 +490,7 @@ const SigningPageV1 = ({ data }: { data: Awaited<ReturnType<typeof handleV1Loade
                 .
               </Trans>
             </p>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -579,7 +580,7 @@ const SigningPageV2 = ({ data }: { data: Awaited<ReturnType<typeof handleV2Loade
             <Link to="/" className="mt-36 text-documenso-700 hover:text-documenso-600">
               <Trans>Go Back Home</Trans>
             </Link>
-          ) : (
+          ) : !IS_BRANDED() ? (
             <p className="mt-36 text-muted-foreground/60 text-sm">
               <Trans>
                 Want to send slick signing links like this one?{' '}
@@ -589,7 +590,7 @@ const SigningPageV2 = ({ data }: { data: Awaited<ReturnType<typeof handleV2Loade
                 .
               </Trans>
             </p>
-          )}
+          ) : null}
         </div>
       </div>
     );

@@ -5,6 +5,7 @@ import { unsafeGetEntireEnvelope } from '@documenso/lib/server-only/admin/get-en
 import { decryptSecondaryData } from '@documenso/lib/server-only/crypto/decrypt';
 import { findDocumentAuditLogs } from '@documenso/lib/server-only/document/find-document-audit-logs';
 import { getOrganisationClaimByTeamId } from '@documenso/lib/server-only/organisation/get-organisation-claims';
+import { shouldShowPoweredByBlock } from '@documenso/lib/server-only/pdf/brand-footer';
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
 import { getTranslations } from '@documenso/lib/utils/i18n';
 import { Card, CardContent } from '@documenso/ui/primitives/card';
@@ -83,7 +84,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       deletedAt: envelope.deletedAt,
       documentMeta: envelope.documentMeta,
     },
-    hidePoweredBy: organisationClaim.flags.hidePoweredBy,
+    hidePoweredBy: !shouldShowPoweredByBlock({ hidePoweredBy: organisationClaim.flags.hidePoweredBy }),
     documentLanguage,
     messages,
   };
