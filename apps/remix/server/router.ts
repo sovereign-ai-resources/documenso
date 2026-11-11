@@ -3,6 +3,7 @@ import { auth } from '@documenso/auth/server';
 import { rejectEmbedSessionMiddleware } from '@documenso/auth/server/lib/session/embed-session-restrictions';
 import { csc } from '@documenso/ee/server-only/signing/csc/hono';
 import { jobsClient } from '@documenso/lib/jobs/client';
+import { loadBrandPack } from '@documenso/lib/server-only/branding/load-brand-pack';
 import { LicenseClient } from '@documenso/lib/server-only/license/license-client';
 import { createRateLimitMiddleware } from '@documenso/lib/server-only/rate-limit/rate-limit-middleware';
 import {
@@ -47,6 +48,14 @@ export interface HonoEnv {
     logger: Logger;
     cspNonce: string;
   };
+}
+
+// Load the build's brand pack, if any, before anything renders: every brand
+// getter reads the value this publishes.
+const brandPack = loadBrandPack();
+
+if (brandPack) {
+  logger.info({ msg: `Brand pack loaded: ${brandPack.name}` });
 }
 
 const basePath = (env('NEXT_PUBLIC_BASE_PATH') ?? '').replace(/\/$/, '');
