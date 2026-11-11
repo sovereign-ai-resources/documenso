@@ -2,8 +2,9 @@ import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session
 import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { SessionProvider } from '@documenso/lib/client-only/providers/session';
 import { getBasePath } from '@documenso/lib/constants/app';
+import { BRAND_ASSET_PATHS, IS_BRANDED } from '@documenso/lib/constants/brand';
 import { APP_I18N_OPTIONS, type SupportedLanguageCodes } from '@documenso/lib/constants/i18n';
-import { createPublicEnv } from '@documenso/lib/utils/env';
+import { createPublicEnv, env } from '@documenso/lib/utils/env';
 import { extractLocaleData } from '@documenso/lib/utils/i18n';
 import { TrpcProvider } from '@documenso/trpc/react';
 import { getOrganisationSession } from '@documenso/trpc/server/organisation-router/get-organisation-session';
@@ -27,6 +28,7 @@ import { nonceMiddleware } from '~/middleware/nonce';
 import type { Route } from './+types/root';
 import stylesheet from './app.css?url';
 import { GenericErrorLayout } from './components/general/generic-error-layout';
+import { SourceOffer } from './components/general/source-offer';
 import { langCookie } from './storage/lang-cookie.server';
 import { themeSessionResolver } from './storage/theme-session.server';
 import { appMetaTags } from './utils/meta';
@@ -119,6 +121,10 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
 
   const basePath = data.basePath ?? '';
 
+  // Browsers cache icons and the manifest aggressively; the commit suffix makes a brand change show up.
+  const commit = env('NEXT_PUBLIC_SOURCE_COMMIT');
+  const assetVersion = commit ? `?v=${encodeURIComponent(commit)}` : '';
+
   // Recipient routes (signing pages) put `documenso-branded` on <body> so the
   // <style> block from `RecipientBranding` applies to BOTH the main tree and
   // any portaled content (Radix dialogs/popovers/dropdowns mount outside the
@@ -134,14 +140,16 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     <html translate="no" lang={lang} data-theme={theme} className={theme ?? ''} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <link rel="apple-touch-icon" sizes="180x180" href={`${basePath}/apple-touch-icon.png`} />
-        <link rel="icon" type="image/png" sizes="32x32" href={`${basePath}/favicon-32x32.png`} />
-        <link rel="icon" type="image/png" sizes="16x16" href={`${basePath}/favicon-16x16.png`} />
+        <link rel="apple-touch-icon" sizes="180x180" href={`${basePath}/apple-touch-icon.png${assetVersion}`} />
+        <link rel="icon" type="image/png" sizes="32x32" href={`${basePath}/favicon-32x32.png${assetVersion}`} />
+        <link rel="icon" type="image/png" sizes="16x16" href={`${basePath}/favicon-16x16.png${assetVersion}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="manifest" href={`${basePath}/site.webmanifest`} />
+        <link rel="manifest" href={`${basePath}/site.webmanifest${assetVersion}`} />
         <meta name="google" content="notranslate" />
         <Meta />
         <Links nonce={nonce(cspNonce)} />
+        {/* After the app stylesheet so the pack's palette variables win. */}
+        {IS_BRANDED() && <link rel="stylesheet" href={`${basePath}${BRAND_ASSET_PATHS.stylesheet}`} />}
         <meta name="google" content="notranslate" />
         <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme)} nonce={nonce(cspNonce)} />
 
@@ -175,6 +183,8 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
             <TooltipProvider>
               <TrpcProvider>
                 {children}
+
+                <SourceOffer />
 
                 <Toaster />
               </TrpcProvider>
