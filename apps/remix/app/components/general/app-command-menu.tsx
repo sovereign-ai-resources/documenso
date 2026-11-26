@@ -597,11 +597,7 @@ export const AppCommandMenu = ({ open, onOpenChange }: AppCommandMenuProps) => {
             <span className="ml-auto text-muted-foreground text-xs">
               {hasValidSearch ? (
                 isVisibleCountCapped ? (
-                  <Plural
-                    value={totalVisibleCount}
-                    one="≥# result"
-                    other="≥# results"
-                  />
+                  <Plural value={totalVisibleCount} one="≥# result" other="≥# results" />
                 ) : (
                   <Plural value={totalVisibleCount} one="# result" other="# results" />
                 )

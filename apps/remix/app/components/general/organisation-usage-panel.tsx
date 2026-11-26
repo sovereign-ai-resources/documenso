@@ -170,10 +170,10 @@ const UsageStatCard = ({ label, icon: Icon, used, limit, countOnly = false, foot
 
         {hasFiniteLimit ? <Progress className={cn('mt-3 h-2', progressClassName)} value={percent} /> : null}
 
-        {subtext ? <p className="mt-2 text-muted-foreground text-xs">{subtext}</p> : null}
+        {Boolean(subtext) ? <p className="mt-2 text-muted-foreground text-xs">{subtext}</p> : null}
       </div>
 
-      {action ? <div className="mt-4 flex justify-end border-t pt-4">{action}</div> : null}
+      {Boolean(action) ? <div className="mt-4 flex justify-end border-t pt-4">{action}</div> : null}
     </div>
   );
 };
