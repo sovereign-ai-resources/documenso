@@ -2,7 +2,7 @@ import LogoImage from '@documenso/assets/logo.png';
 import { authClient } from '@documenso/auth/client';
 import { useOptionalCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { useSession } from '@documenso/lib/client-only/providers/session';
-import { BRAND_LEGAL_NAME } from '@documenso/lib/constants/brand';
+import { BRAND_LEGAL_NAME, BRAND_NAME } from '@documenso/lib/constants/brand';
 import { canAccessOrganisationAnalytics, formatOrganisationAnalyticsPath } from '@documenso/lib/utils/organisations';
 import { canExecuteTeamAction, formatAnalyticsPath } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
@@ -91,7 +91,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
     <Sheet open={isMenuOpen} onOpenChange={onMenuOpenChange}>
       <SheetContent className="flex w-full max-w-[350px] flex-col">
         <Link to="/" onClick={handleMenuItemClick}>
-          <img src={LogoImage} alt="Documenso Logo" className="dark:invert" width={170} height={25} />
+          <img src={LogoImage} alt={`${BRAND_NAME()} Logo`} className="dark:invert" width={170} height={25} />
         </Link>
 
         <div className="mt-8 flex w-full flex-col items-start gap-y-4">

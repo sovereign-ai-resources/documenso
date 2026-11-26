@@ -1,5 +1,6 @@
 import LogoIcon from '@documenso/assets/logo_icon.png';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
+import { BRAND_NAME } from '@documenso/lib/constants/brand';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { msg } from '@lingui/core/macro';
@@ -54,7 +55,7 @@ export default function PublicProfileLayout() {
 
               <img
                 src={LogoIcon}
-                alt="Documenso Logo"
+                alt={`${BRAND_NAME()} Logo`}
                 width={48}
                 height={48}
                 className="h-10 w-auto sm:hidden dark:invert"
