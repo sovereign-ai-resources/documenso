@@ -166,10 +166,20 @@ promote workflow enforces:
 3. Right before promoting, the PR head still equals the approved SHA and `soar`
    still equals the `Replayed from soar at` commit.
 
-Then, as a repository admin, run `scripts/soar/promote.sh vX.Y.Z <sync head SHA>
-<replayed soar SHA>` using the copy of the script on `soar`, not the one on the
-sync branch. Comment on and close the PR, and delete the sync branch. GitHub may
-already show the PR as merged, because its head is now `soar`'s tip.
+Then, as a repository admin, run the copy of `promote.sh` on `soar`, not the one
+on the sync branch:
+
+```sh
+git show origin/soar:scripts/soar/promote.sh > /tmp/promote.sh
+bash /tmp/promote.sh vX.Y.Z <sync head SHA> <replayed soar SHA>
+```
+
+Comment on and close the PR, and delete the sync branch. GitHub may already show
+the PR as merged, because its head is now `soar`'s tip.
+
+The comment go-ahead in gate 1 is a deliberate exception while this repository
+has a single admin: nobody else can review the resolution. Once a second admin or
+code owner exists, or the sync App is set up, use an approving review instead.
 
 `scripts/soar/test-sync.sh` exercises the replay, promote and release-detection
 scripts against throwaway repositories (it stubs `npm`).
