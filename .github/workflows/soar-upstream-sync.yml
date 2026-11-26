@@ -305,7 +305,7 @@ jobs:
               sed -n '/^replay: conflict/,$p' replay.log
               echo '```'
               echo
-              echo "To resolve: run \`scripts/soar/replay.sh $TARGET\` locally (see SOAR-FORK.md), fix the fork commit named above so it applies to $TARGET, and land that as a PR into soar. Then close this issue; the next daily run retries."
+              echo "To resolve: a PR into soar cannot fix this, because the replay rebases the original fork commits. Replay onto $TARGET by hand, resolve the conflicts, run the checks, push sync/$TARGET and open the sync PR, as SOAR-FORK.md describes under \"Taking a new upstream release\". Then close this issue."
             } >issue.md
           else
             title="Upstream sync $TARGET: failed"
