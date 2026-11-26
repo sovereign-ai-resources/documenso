@@ -154,8 +154,9 @@ formatting-only commit at the top of the stack. Biome's output is
 deterministic, so if upstream makes the same fix, a later replay drops the
 commit as already applied.
 
-If the sync App is not set up, promote by hand, holding to the gates the
-promote workflow enforces:
+If the sync App is not set up, or an admin opened the sync PR after resolving
+conflicts by hand, promote by hand, holding to the gates the promote workflow
+enforces:
 
 1. A repository admin or whole-repo code owner approves the sync PR's current
    head, after checking the hand-resolved conflicts. GitHub does not let a PR's
