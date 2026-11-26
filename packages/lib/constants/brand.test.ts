@@ -60,4 +60,10 @@ describe('brand pack', () => {
 
     expect(() => parseBrandPack(JSON.stringify(withoutLegalName), 'x')).toThrow(/legalName/);
   });
+
+  it('rejects a pack that is not valid JSON, naming the file', () => {
+    expect(() => parseBrandPack('{"name": "Example Co",', '/app/public/brand/brand.json')).toThrow(
+      /^Invalid brand pack at \/app\/public\/brand\/brand\.json: not valid JSON/,
+    );
+  });
 });
