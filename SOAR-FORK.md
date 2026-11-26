@@ -117,14 +117,34 @@ The sync PR is reviewed but **never merged**: a GitHub merge would duplicate
 the stack. Security releases should reach production within a week of
 publication.
 
-To resolve a conflict, replay locally, fix the named fork commit so it applies
-to the new release, land that fix as a PR into `soar`, close the issue, and let
-the next run retry:
+To resolve a conflict, replay by hand and push the result as the sync branch.
+A PR into `soar` cannot fix it: the replay rebases the original fork commits
+from `soar-base`, so the named commit conflicts again however many commits land
+on top of it.
 
 ```sh
 git fetch upstream tag vX.Y.Z --no-tags
 scripts/soar/replay.sh vX.Y.Z      # exit 2 names the commit and files
+# Replay again by hand and resolve each conflict:
+git checkout -B sync/vX.Y.Z soar
+git rebase --onto vX.Y.Z soar-base sync/vX.Y.Z
 ```
+
+Then run `npm ci`, `npm run prisma:generate` and `npm run lint` on the result.
+Some lint rules are type-aware, so they report nothing without the install.
+Run the four guardrail scripts with `SOAR_BASE=vX.Y.Z` as well. Push
+`sync/vX.Y.Z` and open the sync PR in the workflow's format; the promote
+workflow reads the `Replayed from soar at` line. Close the issue.
+
+When upstream's release fails its own `npm run lint`, put the fix in one
+formatting-only commit at the top of the stack. Biome's output is
+deterministic, so if upstream makes the same fix, a later replay drops the
+commit as already applied.
+
+If the sync App is not set up, promote by hand. Run `scripts/soar/promote.sh
+vX.Y.Z <sync head SHA> <replayed soar SHA>` as a repository admin, only after
+every check on the sync head has passed. Then comment on and close the PR, and
+delete the sync branch.
 
 `scripts/soar/test-sync.sh` exercises the replay, promote and release-detection
 scripts against throwaway repositories (it stubs `npm`).
@@ -143,7 +163,19 @@ These are set by a repository admin; nothing in this repo can set them.
   `soar` as the default branch (scheduled workflows run only from it).
 - **Upstream's `deploy.yml` and `publish.yml` workflows disabled** in the
   Actions settings. `deploy.yml` runs on every tag push, and promotion pushes
-  the `soar-base` and `soar-archive/*` tags.
+  the `soar-base` and `soar-archive/*` tags. GitHub lists a workflow, and so
+  lets you disable it, only after it has run once in this repository. Until
+  then `deploy.yml` fails at checkout here, because this fork has no
+  `GH_TOKEN` secret.
+- **Upstream's scheduled workflows disabled**: `translations-pull.yml` (it
+  needs upstream's secrets and fails every run) and `stale.yml` (it would mark
+  and close this fork's issues and PRs).
+- **Issues enabled.** A failed sync reports itself by opening an issue; with
+  Issues off, that step fails and the failure goes unreported.
+- **Actions re-enabled after GitHub turns them off.** GitHub can turn Actions
+  off on a fork. The repository's Settings, Actions page then shows a banner
+  with a button to turn them back on, while the Actions permissions API still
+  reports them as enabled.
 - **The `soar` ruleset.** It already requires a PR with the four guard checks
   (packages/ee untouched, Enterprise flags off, Denylist, gitleaks), allows
   only squash merges so each fork change stays one commit, and blocks force
