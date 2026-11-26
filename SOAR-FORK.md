@@ -179,7 +179,9 @@ the PR as merged, because its head is now `soar`'s tip.
 
 The comment go-ahead in gate 1 is a deliberate exception while this repository
 has a single admin: nobody else can review the resolution. Once a second admin or
-code owner exists, or the sync App is set up, use an approving review instead.
+code owner exists, use their approving review instead. Setting up the sync App
+does not end the exception: an admin still opens a hand-resolved sync PR and
+cannot approve it.
 
 `scripts/soar/test-sync.sh` exercises the replay, promote and release-detection
 scripts against throwaway repositories (it stubs `npm`).
