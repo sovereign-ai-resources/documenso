@@ -117,14 +117,72 @@ The sync PR is reviewed but **never merged**: a GitHub merge would duplicate
 the stack. Security releases should reach production within a week of
 publication.
 
-To resolve a conflict, replay locally, fix the named fork commit so it applies
-to the new release, land that fix as a PR into `soar`, close the issue, and let
-the next run retry:
+To resolve a conflict, replay by hand and push the result as the sync branch.
+A PR into `soar` cannot fix it: the replay rebases the original fork commits
+from `soar-base`, so the named commit conflicts again however many commits land
+on top of it. A repository admin does this, because only the App and admins can
+push `sync/*` branches.
 
 ```sh
-git fetch upstream tag vX.Y.Z --no-tags
+git fetch origin soar '+refs/tags/soar-base:refs/tags/soar-base'
+git fetch upstream --tags          # promote.sh needs the old release tag too
 scripts/soar/replay.sh vX.Y.Z      # exit 2 names the commit and files
+# Replay again by hand and resolve each conflict:
+git checkout -B sync/vX.Y.Z origin/soar
+git rebase --onto vX.Y.Z soar-base sync/vX.Y.Z
 ```
+
+The hand rebase does not get `replay.sh`'s automatic handling of
+`package-lock.json` conflicts: keep upstream's lockfile and regenerate it with
+`npm install --package-lock-only --ignore-scripts`. Before pushing, run these
+checks on the result:
+
+1. `npm ci`, `npm run prisma:generate` and `npm run lint`. Some lint rules are
+   type-aware, so they report nothing without the install.
+2. The three guardrail scripts with `SOAR_BASE=vX.Y.Z`:
+   `scripts/soar/check-ee-untouched.sh`, `scripts/soar/check-enterprise-flags.sh`
+   and `scripts/soar/check-denylist.sh`.
+3. The secret scan:
+   `gitleaks git --no-banner --redact --config .gitleaks.toml --log-opts=vX.Y.Z..HEAD .`
+
+Then push `sync/vX.Y.Z`, open the sync PR in the workflow's format (the promote
+workflow reads the `Replayed from soar at` line, and the PR body should say
+which conflicts were resolved by hand), and close the issue.
+
+When upstream's release fails its own `npm run lint`, put the fix in one
+formatting-only commit at the top of the stack. Biome's output is
+deterministic, so if upstream makes the same fix, a later replay drops the
+commit as already applied.
+
+If the sync App is not set up, or an admin opened the sync PR after resolving
+conflicts by hand, promote by hand, holding to the gates the promote workflow
+enforces:
+
+1. A repository admin or whole-repo code owner approves the sync PR's current
+   head, after checking the hand-resolved conflicts. GitHub does not let a PR's
+   author approve it, so when the admin opened the PR, the admin's go-ahead in a
+   PR comment that names the head SHA counts instead.
+2. Every check on that head has passed: packages/ee untouched, Enterprise flags
+   off, Denylist, gitleaks, Lint, Build App, Build Docker Image and E2E Tests.
+3. Right before promoting, the PR head still equals the approved SHA and `soar`
+   still equals the `Replayed from soar at` commit.
+
+Then, as a repository admin, run the copy of `promote.sh` on `soar`, not the one
+on the sync branch:
+
+```sh
+git show origin/soar:scripts/soar/promote.sh > /tmp/promote.sh
+bash /tmp/promote.sh vX.Y.Z <sync head SHA> <replayed soar SHA>
+```
+
+Comment on and close the PR, and delete the sync branch. GitHub may already show
+the PR as merged, because its head is now `soar`'s tip.
+
+The comment go-ahead in gate 1 is a deliberate exception while this repository
+has a single admin: nobody else can review the resolution. Once a second admin or
+code owner exists, use their approving review instead. Setting up the sync App
+does not end the exception: an admin still opens a hand-resolved sync PR and
+cannot approve it.
 
 `scripts/soar/test-sync.sh` exercises the replay, promote and release-detection
 scripts against throwaway repositories (it stubs `npm`).
@@ -143,7 +201,19 @@ These are set by a repository admin; nothing in this repo can set them.
   `soar` as the default branch (scheduled workflows run only from it).
 - **Upstream's `deploy.yml` and `publish.yml` workflows disabled** in the
   Actions settings. `deploy.yml` runs on every tag push, and promotion pushes
-  the `soar-base` and `soar-archive/*` tags.
+  the `soar-base` and `soar-archive/*` tags. GitHub lists a workflow, and so
+  lets you disable it, only after it has run once in this repository. Until
+  then `deploy.yml` fails at checkout here, because this fork has no
+  `GH_TOKEN` secret.
+- **Upstream's scheduled workflows disabled**: `translations-pull.yml` (it
+  needs upstream's secrets and fails every run) and `stale.yml` (it would mark
+  and close this fork's issues and PRs).
+- **Issues enabled.** A failed sync reports itself by opening an issue; with
+  Issues off, that step fails and the failure goes unreported.
+- **Actions re-enabled after GitHub turns them off.** GitHub can turn Actions
+  off on a fork. The repository's Settings, Actions page then shows a banner
+  with a button to turn them back on, while the Actions permissions API still
+  reports them as enabled.
 - **The `soar` ruleset.** It already requires a PR with the four guard checks
   (packages/ee untouched, Enterprise flags off, Denylist, gitleaks), allows
   only squash merges so each fork change stays one commit, and blocks force
@@ -153,8 +223,10 @@ These are set by a repository admin; nothing in this repo can set them.
   rejected and nothing is promoted; with it, only the promote workflow and
   admins can force-move `soar`.
 - **Protect `sync/*`** once the App exists: a branch ruleset that only the
-  App bypasses, so only it can create, update or delete these branches and
-  the head a reviewer approves is what the automation built.
+  App and repository admins bypass, so only they can create, update or delete
+  these branches. A head the automation built is the replay's output; a head an
+  admin pushed after resolving conflicts by hand needs a reviewer who checked
+  those resolutions.
 - **Protect the tags `soar-base` and `soar-archive/*`** once the App exists:
   a tag ruleset that only the App bypasses, so only it can create, move or
   delete them.
