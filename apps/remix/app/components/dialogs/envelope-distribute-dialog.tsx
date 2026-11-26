@@ -1,6 +1,7 @@
 import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
+import { BRAND_NAME } from '@documenso/lib/constants/brand';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { AppError } from '@documenso/lib/errors/app-error';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
@@ -391,7 +392,7 @@ export const EnvelopeDistributeDialog = ({
                                             </SelectItem>
                                           ))}
 
-                                          <SelectItem value={'-1'}>Documenso</SelectItem>
+                                          <SelectItem value={'-1'}>{BRAND_NAME()}</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </FormControl>

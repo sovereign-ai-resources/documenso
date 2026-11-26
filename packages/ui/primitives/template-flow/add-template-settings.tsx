@@ -1,5 +1,6 @@
 import { useAutoSave } from '@documenso/lib/client-only/hooks/use-autosave';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
+import { BRAND_NAME } from '@documenso/lib/constants/brand';
 import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
 import { DOCUMENT_DISTRIBUTION_METHODS, DOCUMENT_SIGNATURE_TYPES } from '@documenso/lib/constants/document';
 import { SUPPORTED_LANGUAGES } from '@documenso/lib/constants/i18n';
@@ -499,7 +500,7 @@ export const AddTemplateSettingsFormPartial = ({
                                       </SelectItem>
                                     ))}
 
-                                    <SelectItem value={'-1'}>Documenso</SelectItem>
+                                    <SelectItem value={'-1'}>{BRAND_NAME()}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </FormControl>
