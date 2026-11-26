@@ -14,7 +14,17 @@ export const getBrandPackPath = (cwd = process.cwd()) => path.join(cwd, 'public/
  * Validate a brand pack's JSON, naming every bad field and where it came from.
  */
 export const parseBrandPack = (raw: string, source: string): TBrandPack => {
-  const result = ZBrandPackSchema.safeParse(JSON.parse(raw));
+  let json: unknown;
+
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+
+    throw new Error(`Invalid brand pack at ${source}: not valid JSON (${reason})`);
+  }
+
+  const result = ZBrandPackSchema.safeParse(json);
 
   if (!result.success) {
     const problems = result.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`);
